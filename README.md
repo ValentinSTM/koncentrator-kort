@@ -19,6 +19,7 @@ hartă cu poziția montatorului, descrierea exactă a locului de montaj, fotogra
 | `tools/dict_to_md.py` | regenerează `docs/placement-dictionary.md` |
 | `tools/build_dataset.py` | face fișierul privat `koncentrator-data.json` (Radio Mesh + LinkIQ + fotografii) pe care aplicația îl încarcă local |
 | `tools/windows/Descarca-poze.bat` | descarcă fotografiile din exportul My Maps (dublu-clic, Windows) |
+| `tools/google-apps-script/Code.gs` | serverul temporar pe Google Drive (fără secrete; codurile stau în proprietățile scriptului) |
 | `tools/build_single.py` | face din `app/` un singur fișier HTML |
 
 ## Ce face aplicația (versiunea 1 – Radio Mesh)
@@ -28,7 +29,8 @@ hartă cu poziția montatorului, descrierea exactă a locului de montaj, fotogra
 - buton mare **Google Maps** pentru navigare;
 - **Completează în 1 minut**: 1) „Sunt lângă concentrator” (GPS), 2) unde e – doar butoane, 3) fotografii;
 - **poziție manuală** când GPS-ul lipsește (ex. PC cu localizarea oprită): 📌 → alegi pe hartă, scrii o adresă (căutată doar în datele încărcate) sau coordonate; aplicația o ține minte;
-- note, raportare problemă, istoric; modificările rămân pe dispozitiv și se exportă ca fișier pentru birou (până la Azure).
+- note, raportare problemă, istoric;
+- **spațiu comun temporar** (Google Drive prin Google Apps Script) până la Azure: toți văd aceleași date, sincronizare automată, coadă offline – vezi `docs/ro/LAGER-TEMPORAR-GOOGLE.md`; modificările rămân pe dispozitiv și se exportă ca fișier pentru birou (până la Azure).
 
 ## Rulare locală
 ```

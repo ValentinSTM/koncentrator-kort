@@ -136,7 +136,24 @@
     try { const h = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); } catch { return ''; }
   }
 
+  function uid() { return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  /* old format (v1): { cid: {verified, placement, notes[], photos[], status, events[]} } */
+  function changesToEvents(ch) {
+    const out = [];
+    for (const [cid, c] of Object.entries(ch || {})) {
+      const by = (c.events && c.events[0] && c.events[0].by) || '';
+      const at0 = (c.events && c.events[0] && c.events[0].at) || new Date().toISOString();
+      if (c.verified) out.push({ eid: uid(), cid, type: 'verify', at: c.verified.at || at0, by: c.verified.by || by, data: Object.assign({ summary: '±' + (c.verified.acc || '?') + ' m' }, c.verified), synced: false });
+      if (c.placement) out.push({ eid: uid(), cid, type: 'placement', at: at0, by, data: { placement: c.placement }, synced: false });
+      for (const n of c.notes || []) out.push({ eid: uid(), cid, type: 'note', at: n.at || at0, by: n.by || by, data: { text: n.text }, synced: false });
+      for (const p of c.photos || []) out.push({ eid: uid(), cid, type: 'photo', at: p.at || at0, by: p.by || by, data: { pid: p.pid, caption: p.caption || '', kind: p.kind || '' }, synced: false });
+      if (c.status) out.push({ eid: uid(), cid, type: 'report', at: at0, by, data: { status: c.status, summary: '' }, synced: false });
+    }
+    return out;
+  }
+
   window.Data = {
+    uid,
     kvGet, kvSet, kvDel, kvKeys, loadDictionary, demoDataset, demoPhotoSvg, validate, processPhoto, sha256, esc,
     /* active dataset: 'demo' or 'local' */
     async loadActive() {
@@ -145,6 +162,10 @@
         const ds = await kvGet('dataset:local');
         if (ds) return { mode: 'local', ds };
       }
+      if (mode === 'shared') {
+        const ds = await kvGet('dataset:shared');
+        return { mode: 'shared', ds: ds || { schema: 'koncentrator-kort/1', sites: [], concentrators: [], generatedAt: '' } };
+      }
       return { mode: 'demo', ds: demoDataset() };
     },
     async saveLocalDataset(ds) { const ok = await kvSet('dataset:local', ds); await kvSet('mode', 'local'); return ok; },
@@ -152,12 +173,27 @@
     async forgetLocal() {
       await kvDel('dataset:local'); await kvSet('mode', 'demo');
       for (const k of await kvKeys('img:local:')) await kvDel(k);
-      await kvDel('changes:local');
+      await kvDel('changes:local'); await kvDel('events:local');
       for (const k of await kvKeys('newimg:local:')) await kvDel(k);
     },
-    async getChanges(mode) { return (await kvGet('changes:' + mode)) || {}; },
-    async saveChanges(mode, ch) { return kvSet('changes:' + mode, ch); },
-    async clearChanges(mode) { await kvDel('changes:' + mode); for (const k of await kvKeys('newimg:' + mode + ':')) await kvDel(k); },
+    async forgetShared() {
+      await kvDel('sync:cfg'); await kvDel('dataset:shared'); await kvDel('sync:state'); await kvDel('events:shared'); await kvSet('mode', 'demo');
+      for (const p of ['img:shared:', 'newimg:shared:']) for (const k of await kvKeys(p)) await kvDel(k);
+    },
+    /* Every change is one event {eid, cid, type, at, by, data, synced}. The current state is rebuilt from them,
+       so changes from several people never overwrite each other. */
+    async getEvents(mode) {
+      let ev = await kvGet('events:' + mode);
+      if (!ev) {   // first run after the update: turn the old per-concentrator changes into events
+        const old = await kvGet('changes:' + mode);
+        ev = old ? changesToEvents(old) : [];
+        if (old) { await kvSet('events:' + mode, ev); await kvDel('changes:' + mode); }
+      }
+      return Array.isArray(ev) ? ev : [];
+    },
+    async saveEvents(mode, ev) { return kvSet('events:' + mode, ev); },
+    async clearChanges(mode) { await kvDel('events:' + mode); await kvDel('changes:' + mode); for (const k of await kvKeys('newimg:' + mode + ':')) await kvDel(k); },
+    changesToEvents,
     imgKey: (mode, file) => 'img:' + mode + ':' + file,
     newImgKey: (mode, pid) => 'newimg:' + mode + ':' + pid
   };

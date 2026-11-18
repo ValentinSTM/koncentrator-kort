@@ -15,7 +15,8 @@
     lang: 'da', dict: null, mode: 'demo', ds: null, ch: {}, prefs: { name: '' },
     me: null, heading: null, compassListening: false, sim: false, follow: false,
     q: '', filters: { tech: new Set(['radiomesh', 'linkiq']), info: new Set() },
-    tab: 'map', prevTab: 'map', detail: null, listLimit: 80, effCache: new Map(), imgCache: new Map(), wz: null, photoTarget: null
+    tab: 'map', prevTab: 'map', detail: null, listLimit: 80, effCache: new Map(), imgCache: new Map(), wz: null, photoTarget: null,
+    events: [], sync: { cfg: null, state: { since: 0, version: '' }, busy: false, lastOk: null, error: '', timer: null }
   };
 
   /* ---------------- i18n ---------------- */
@@ -30,7 +31,15 @@
     $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
     $$('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
     $$('.langs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === S.lang));
-    const src = $('#srcBadge'); src.textContent = S.mode === 'local' ? t('srcLocal') : t('srcDemo'); src.classList.toggle('local', S.mode === 'local');
+    updateBadge();
+  }
+
+  function updateBadge() {
+    const src = $('#srcBadge'); if (!src) return;
+    const pending = S.events.filter(e => !e.synced).length;
+    let txt = S.mode === 'local' ? t('srcLocal') : S.mode === 'shared' ? t('srcShared') : t('srcDemo');
+    if (S.mode === 'shared') txt += S.sync.busy ? ' · ⟳' : pending ? ' · ' + pending + ' ⇡' : S.sync.error ? ' · ⚠' : ' · ✓';
+    src.textContent = txt; src.classList.toggle('local', S.mode !== 'demo');
   }
 
   /* ---------------- dictionary helpers ---------------- */
@@ -128,6 +137,7 @@
     for (const img of $$('img[data-k]', root)) {
       const k = img.dataset.k; let v = S.imgCache.get(k);
       if (!v) { v = await Data.kvGet(k); if (v) S.imgCache.set(k, v); }
+      if (!v && S.mode === 'shared') v = await fetchRemotePhoto(k);
       if (v) { img.src = v[img.dataset.w]; img.removeAttribute('data-k'); } else { img.replaceWith(Object.assign(document.createElement('span'), { textContent: '📷', className: img.className })); }
     }
   }
@@ -399,7 +409,7 @@
         <dt>${esc(t('code'))}</dt><dd class="mono">${esc(r.code || '—')}</dd><dt>${esc(t('sim'))}</dt><dd class="mono">${esc(r.simNumber || '—')}</dd>
         <dt>${esc(t('status'))}</dt><dd>${esc(t('st_' + r.status))}</dd></dl></div>
       <div class="card"><h2>${esc(t('history'))}</h2><ul class="timeline">
-        ${r.events.slice().reverse().map(ev => `<li class="mine"><time>${fmtDate(ev.at, true)} · ${esc(ev.by || t('unknownUser'))}</time>${esc(t('ev_' + ev.type))}${ev.text ? ' – ' + esc(ev.text) : ''}</li>`).join('')}
+        ${r.events.slice().reverse().map(ev => `<li class="${ev.mine ? 'mine' : ''}"><time>${fmtDate(ev.at, true)} · ${esc(ev.by || t('unknownUser'))}</time>${esc(t('ev_' + ev.type))}${ev.text ? ' – ' + esc(ev.text) : ''}</li>`).join('')}
         <li><time>—</time>${esc(t('ev_import'))}</li></ul></div>
       <button class="btn danger" data-act="report">⚑ ${esc(t('report'))}</button>
       <div class="actionbar">
@@ -426,11 +436,25 @@
   }
 
   /* ---------------- changes (stored on this device) ---------------- */
-  function chFor(id) { return S.ch[id] || (S.ch[id] = { events: [] }); }
-  async function commit(id, evType, text) {
-    const ch = chFor(id); ch.events = ch.events || []; ch.events.push({ type: evType, at: new Date().toISOString(), by: S.prefs.name || t('unknownUser'), text: text || '' });
-    const ok = await Data.saveChanges(S.mode, S.ch); if (!ok) toast(t('storageWarn'));
-    S.effCache.delete(id); renderAll();
+  /* Current state per concentrator = base data + all events (mine and, when shared, everybody's), in time order. */
+  function rebuildCh() {
+    const ch = {};
+    const evs = S.events.slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
+    for (const e of evs) {
+      const c = ch[e.cid] || (ch[e.cid] = { events: [] }); const d = e.data || {};
+      if (e.type === 'verify') c.verified = { lat: d.lat, lng: d.lng, acc: d.acc, at: e.at, by: e.by, source: d.source || 'gps', simulated: !!d.simulated };
+      else if (e.type === 'placement') c.placement = d.placement || {};
+      else if (e.type === 'note') (c.notes = c.notes || []).push({ text: d.text, at: e.at, by: e.by });
+      else if (e.type === 'photo') (c.photos = c.photos || []).push({ pid: d.pid, caption: d.caption || '', at: e.at, by: e.by, kind: d.kind || '' });
+      else if (e.type === 'report' && d.status) c.status = d.status;
+      c.events.push({ type: e.type, at: e.at, by: e.by, text: d.summary || (e.type === 'note' ? d.text : '') || '', mine: !e.remote });
+    }
+    S.ch = ch; S.effCache.clear();
+  }
+  async function addEvent(cid, type, data) {
+    S.events.push({ eid: Data.uid(), cid, type, at: new Date().toISOString(), by: S.prefs.name || t('unknownUser'), data, synced: S.mode !== 'shared' ? true : false, local: true });
+    const ok = await Data.saveEvents(S.mode, S.events); if (!ok) toast(t('storageWarn'));
+    rebuildCh(); renderAll(); updateBadge(); scheduleSync(1500);
   }
 
   /* ---------------- sheet (dialogs) ---------------- */
@@ -456,10 +480,15 @@
         $$('[data-fgrp]', sh).forEach(x => x.setAttribute('aria-pressed', f[x.dataset.fgrp].has(x.dataset.fval))); renderAll();
       }) });
   }
+  function nameSheet() {
+    openSheet({ title: t('yourName'), body: `<p style="margin:0">${esc(t('askName'))}</p><input class="f" id="nameIn" maxlength="60" autocomplete="name">`,
+      foot: `<button class="btn primary" data-act="saveName">${esc(t('save'))}</button>`,
+      onMount: () => setTimeout(() => { const n = $('#nameIn'); if (n) n.focus(); }, 80) });
+  }
   function noteSheet(id) {
     openSheet({ title: t('addNote') + ' · ' + id, body: `<textarea class="f" id="noteTxt" maxlength="1000" placeholder="${esc(t('noteOpt'))}"></textarea>`,
       foot: `<button class="btn ghost" data-act="closeSheet">${esc(t('cancel'))}</button><button class="btn primary" data-act="saveNote">${esc(t('save'))}</button>`,
-      onMount: () => setTimeout(() => $('#noteTxt').focus(), 50) });
+      onMount: () => setTimeout(() => { const n = $('#noteTxt'); if (n) n.focus(); }, 50) });
   }
   function reportSheet(id) {
     openSheet({ title: t('report') + ' · ' + id,
@@ -505,7 +534,7 @@
         <label class="f" for="wzNote">${esc(t('noteOpt'))}</label><textarea class="f" id="wzNote" maxlength="1000">${esc(wz.note)}</textarea>`;
       foot = `<button class="btn ghost" data-act="wzPrev" style="flex:.5">‹</button><button class="btn primary" data-act="wzNext">${esc(t('next'))} ›</button>`;
     } else {
-      const mine = (S.ch[wz.id] && S.ch[wz.id].photos || []).filter(p => p.at >= wz.startedAt);
+      const mine = (S.ch[wz.id] && S.ch[wz.id].photos || []).filter(p => p.at >= (wz.startedAt || ''));
       body = `<h3 style="margin:0">3 · ${esc(t('wz3'))}</h3><p class="muted" style="margin:0">${esc(t('photoHint'))}</p>
         <button class="btn primary big" data-act="wzPhoto" data-kind="unit">📷 ${esc(t('photoUnit'))}</button>
         <button class="btn outline big" data-act="wzPhoto" data-kind="way">🚪 ${esc(t('photoWay'))}</button>
@@ -522,9 +551,9 @@
     const wz = S.wz; if (!wz) return;
     if (wz.dirty) {
       const p = {}; for (const [k, v] of Object.entries(wz.placement)) if (v && v.length) p[k] = v;
-      chFor(wz.id).placement = p; wz.dirty = false; await commit(wz.id, 'placement', sentence(p));
+      wz.dirty = false; await addEvent(wz.id, 'placement', { placement: p, summary: sentence(p) });
     }
-    if (wz.note.trim()) { const ch = chFor(wz.id); (ch.notes = ch.notes || []).push({ text: wz.note.trim(), at: new Date().toISOString(), by: S.prefs.name || t('unknownUser') }); wz.note = ''; await commit(wz.id, 'note'); }
+    if (wz.note.trim()) { const text = wz.note.trim(); wz.note = ''; await addEvent(wz.id, 'note', { text }); }
   }
 
   /* ---------------- photo intake ---------------- */
@@ -539,13 +568,113 @@
       const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const ok = await Data.kvSet(Data.newImgKey(S.mode, pid), img); S.imgCache.set(Data.newImgKey(S.mode, pid), img);
       if (!ok) toast(t('storageWarn'));
-      const ch = chFor(target.id); (ch.photos = ch.photos || []).push({ pid, caption: target.kind === 'way' ? t('photoWay') : target.kind === 'unit' ? t('photoUnit') : '', at: new Date().toISOString(), by: S.prefs.name || t('unknownUser'), kind: target.kind || '' });
-      await commit(target.id, 'photo');
+      await addEvent(target.id, 'photo', { pid, caption: target.kind === 'way' ? t('photoWay') : target.kind === 'unit' ? t('photoUnit') : '', kind: target.kind || '', summary: '' });
       toast(t('saved'));
       if (S.wz) renderWizard();
     } catch { toast(t('photoType')); }
   });
   function takePhoto(id, kind) { S.photoTarget = { id, kind }; $('#fileIn').click(); }
+
+  /* ---------------- shared store (temporary: Google Apps Script on Drive; later the Azure API, same calls) ---------------- */
+  const remoteKey = (k) => k.startsWith('img:shared:') ? 'base__' + k.slice(11).replace(/[^A-Za-z0-9_.\-]/g, '_') : k.startsWith('newimg:shared:') ? 'new__' + k.slice(14).replace(/[^A-Za-z0-9_.\-]/g, '_') : '';
+  async function api(action, payload, cfg) {
+    const c = cfg || S.sync.cfg; if (!c) throw new Error('not_configured');
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 60000);
+    try {
+      const r = await fetch(c.url, { method: 'POST', body: JSON.stringify(Object.assign({ action, code: c.code }, payload || {})), redirect: 'follow', signal: ctl.signal });
+      const j = await r.json(); if (!j.ok) throw new Error(j.error || 'error'); return j;
+    } finally { clearTimeout(tm); }
+  }
+  const photoFetching = new Map();
+  function fetchRemotePhoto(k) {
+    const rk = remoteKey(k); if (!rk || !S.sync.cfg || !navigator.onLine) return Promise.resolve(null);
+    if (!photoFetching.has(k)) photoFetching.set(k, api('getPhoto', { key: rk }).then(async j => { const v = { full: j.full, thumb: j.thumb }; await Data.kvSet(k, v); S.imgCache.set(k, v); return v; }).catch(() => null).finally(() => setTimeout(() => photoFetching.delete(k), 30000)));
+    return photoFetching.get(k);
+  }
+  function scheduleSync(ms) { if (S.mode !== 'shared' || !S.sync.cfg) return; clearTimeout(S.sync.timer); S.sync.timer = setTimeout(syncNow, ms || 0); }
+  async function syncNow() {
+    if (S.mode !== 'shared' || !S.sync.cfg || S.sync.busy) return;
+    if (!navigator.onLine) { S.sync.error = 'offline'; updateBadge(); return; }
+    S.sync.busy = true; S.sync.error = ''; updateBadge();
+    try {
+      const st = S.sync.state;
+      const man = await api('manifest');
+      if (man.datasetVersion && man.datasetVersion !== st.version) {
+        const j = await api('getDataset');
+        if (j.dataset) { const ds = Data.validate(j.dataset); ds.demo = false; S.ds = ds; await Data.kvSet('dataset:shared', ds); st.version = j.version; S.addrIdx = null; }
+      }
+      // 1. send my photos, then my changes
+      const mine = S.events.filter(e => !e.synced);
+      for (const e of mine) if (e.type === 'photo' && !e.photoUp) {
+        const k = Data.newImgKey('shared', e.data.pid); const v = S.imgCache.get(k) || await Data.kvGet(k);
+        if (v) await api('putPhoto', { key: remoteKey(k), full: v.full, thumb: v.thumb });
+        e.photoUp = true;
+      }
+      if (mine.length) {
+        await api('pushEvents', { events: mine.map(e => ({ eid: e.eid, cid: e.cid, type: e.type, at: e.at, by: e.by, data: e.data })) });
+        for (const e of mine) e.synced = true;
+      }
+      // 2. get everybody's changes
+      let more = true, guard = 0;
+      while (more && guard++ < 20) {
+        const j = await api('getEvents', { since: st.since });
+        const known = new Set(S.events.map(e => e.eid));
+        for (const e of j.events) if (!known.has(e.eid)) S.events.push(Object.assign(e, { synced: true, remote: true }));
+        st.since = j.total; more = !!j.more;
+      }
+      await Data.saveEvents('shared', S.events); await Data.kvSet('sync:state', st);
+      S.sync.lastOk = new Date().toISOString();
+      rebuildCh(); renderAll();
+    } catch (err) {
+      S.sync.error = String(err && err.message || err);
+      if (S.sync.error === 'unauthorized') toast(t('syncUnauthorized'));
+    } finally {
+      S.sync.busy = false; updateBadge(); if (!$('#v-more').hidden) renderMore();
+      if (S.events.some(e => !e.synced)) scheduleSync(60000);
+    }
+  }
+  async function connectShared(cfg, silent) {
+    const j = await api('ping', null, cfg);
+    cfg.admin = !!j.admin;
+    S.sync.cfg = cfg; await Data.kvSet('sync:cfg', cfg); await Data.kvSet('mode', 'shared');
+    S.sync.state = (await Data.kvGet('sync:state')) || { since: 0, version: '' };
+    const ds = await Data.kvGet('dataset:shared');
+    await activate('shared', ds || { schema: 'koncentrator-kort/1', sites: [], concentrators: [], generatedAt: '' });
+    if (!silent) toast(t('syncConnected'));
+    await syncNow(); fitData();
+    if (!S.prefs.name) nameSheet();
+  }
+  async function uploadToShared() {
+    // office: put the current local dataset (+ old photos) into the shared store. Contact persons are not uploaded.
+    const msg = $('#syncMsg');
+    const local = await Data.kvGet('dataset:local');
+    if (!local) { toast(t('uploadNeedsLocal')); return; }
+    const ds = JSON.parse(JSON.stringify(local)); for (const c of ds.concentrators) delete c.accessRestricted;
+    if (msg) msg.textContent = t('uploading', { i: 0, n: 1 });
+    await api('putDataset', { dataset: ds });
+    const files = []; for (const c of ds.concentrators) for (const p of c.photos || []) files.push(p.file);
+    let i = 0, ok = 0;
+    for (const f of files) {
+      i++; if (msg) msg.textContent = t('uploading', { i, n: files.length });
+      const v = S.imgCache.get(Data.imgKey('local', f)) || await Data.kvGet(Data.imgKey('local', f));
+      if (!v) continue;
+      try { await api('putPhoto', { key: remoteKey('img:shared:' + f), full: v.full, thumb: v.thumb }); await Data.kvSet(Data.imgKey('shared', f), v); ok++; } catch {}
+    }
+    // my local changes travel along
+    const localEv = await Data.getEvents('local');
+    for (const e of localEv) if (e.type === 'photo') { const v = await Data.kvGet(Data.newImgKey('local', e.data.pid)); if (v) { await api('putPhoto', { key: remoteKey(Data.newImgKey('shared', e.data.pid)), full: v.full, thumb: v.thumb }); await Data.kvSet(Data.newImgKey('shared', e.data.pid), v); } }
+    if (localEv.length) await api('pushEvents', { events: localEv.map(e => ({ eid: e.eid, cid: e.cid, type: e.type, at: e.at, by: e.by, data: e.data })) });
+    await connectShared(S.sync.cfg, true);
+    toast(t('uploadDone', { n: ds.concentrators.length, p: ok })); const m2 = $('#syncMsg'); if (m2) m2.textContent = t('uploadDone', { n: ds.concentrators.length, p: ok });
+  }
+  function setupLink() {
+    const c = S.sync.cfg; if (!c) return '';
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ url: c.url, code: c.memberCode || c.code }))));
+    return location.origin + location.pathname + '#setup=' + payload;
+  }
+  window.addEventListener('online', () => scheduleSync(500));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') scheduleSync(300); });
+  setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 120000);
 
   /* ---------------- photo viewer ---------------- */
   let vList = [], vIdx = 0, vRec = null;
@@ -553,7 +682,7 @@
   async function showViewerImg() {
     const p = vList[vIdx]; const img = $('#viewerImg');
     if (p.base && S.mode === 'demo') img.src = demoSrc(p, vRec);
-    else { const k = photoKey(p); let v = S.imgCache.get(k) || await Data.kvGet(k); if (v) { S.imgCache.set(k, v); img.src = v.full; } }
+    else { const k = photoKey(p); let v = S.imgCache.get(k) || await Data.kvGet(k); if (!v && S.mode === 'shared') v = await fetchRemotePhoto(k); if (v) { S.imgCache.set(k, v); img.src = v.full; } }
     $('#viewerTxt').textContent = `${vIdx + 1}/${vList.length}${p.caption ? ' · ' + p.caption : ''}${p.at ? ' · ' + fmtDate(p.at) : ''}`;
   }
 
@@ -571,7 +700,9 @@
       <div class="card"><h2>${esc(t('changes'))}</h2><p style="margin:0 0 10px">${esc(t('changesN', { n: changed }))}</p>
         <button class="btn primary" data-act="export" ${changed ? '' : 'disabled'}>⬇ ${esc(t('exportChanges'))}</button>
         <p class="muted">${esc(t('exportHint'))}</p>
-        <button class="btn danger" data-act="clearChanges" ${changed ? '' : 'disabled'}>${esc(t('clearChanges'))}</button></div>
+        <button class="btn outline" data-act="importChanges" style="margin-top:8px">⬆ ${esc(t('importChanges'))}</button>
+        ${S.mode !== 'shared' ? `<button class="btn danger" data-act="clearChanges" ${changed ? '' : 'disabled'}>${esc(t('clearChanges'))}</button>` : ''}</div>
+      ${sharedCard()}
       <div class="card"><h2>${esc(t('dataTitle'))}</h2>
         <div class="alert ${S.mode === 'local' ? 'ok' : 'info'}"><span class="ic">${S.mode === 'local' ? '🔒' : 'ℹ'}</span><span>${S.mode === 'local' ? esc(t('loaded', { n: S.ds.concentrators.length })) : esc(t('aboutDemo'))}</span></div>
         <h3 style="margin:14px 0 6px">${esc(t('loadLocal'))}</h3><p class="muted" style="margin:0 0 8px">${esc(t('loadLocalHint'))}</p>
@@ -585,6 +716,22 @@
       <div class="card"><h2>${esc(t('about'))}</h2><p style="margin:0 0 6px">${esc(t('aboutDemo'))}</p><p class="muted" style="margin:0">${esc(t('aboutPrivacy'))}</p></div>`;
     $('#myName').onchange = async (e) => { S.prefs.name = e.target.value.trim(); await Data.kvSet('prefs', S.prefs); toast(t('saved')); };
   }
+  function sharedCard() {
+    const c = S.sync.cfg, pending = S.events.filter(e => !e.synced).length;
+    if (!c) return `<div class="card"><h2>${esc(t('syncTitle'))}</h2><p class="muted" style="margin:0 0 8px">${esc(t('syncHint'))}</p>
+      <label class="f" for="syUrl">${esc(t('syncUrl'))}</label><input class="f" id="syUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+      <label class="f" for="syCode">${esc(t('syncCode'))}</label><input class="f" id="syCode" autocomplete="off">
+      <button class="btn primary" data-act="syncConnect" style="margin-top:10px">${esc(t('syncConnect'))}</button><div id="syncMsg" class="muted" style="margin-top:6px"></div></div>`;
+    return `<div class="card"><h2>${esc(t('syncTitle'))}${c.admin ? ' · ' + esc(t('adminBadge')) : ''}</h2>
+      <div class="alert ${S.sync.error ? 'warn' : 'ok'}"><span class="ic">${S.sync.error ? '⚠' : '✓'}</span><span>${esc(S.sync.error === 'offline' ? t('syncOffline') : S.sync.error ? t('syncErr', { e: S.sync.error }) : t('syncConnected'))}<br>
+        <span class="muted">${esc(t('syncLast', { t: S.sync.lastOk ? fmtDate(S.sync.lastOk, true) : t('never2') }))}${pending ? ' · ' + esc(t('syncPending', { n: pending })) : ''}</span></span></div>
+      <button class="btn primary" data-act="syncNow" style="margin-top:10px" ${S.sync.busy ? 'disabled' : ''}>⟳ ${esc(t('syncNow'))}</button>
+      ${c.admin ? `<label class="f" for="syMember">${esc(t('memberCode'))}</label><input class="f" id="syMember" autocomplete="off" value="${esc(c.memberCode || '')}">
+        <button class="btn outline" data-act="copyLink" style="margin-top:8px">🔗 ${esc(t('copyLink'))}</button><p class="muted" style="margin:6px 0 0">${esc(t('linkHint'))}</p>
+        <button class="btn outline" data-act="uploadShared" style="margin-top:10px">⬆ ${esc(t('uploadShared'))}</button>` : ''}
+      <div id="syncMsg" class="muted" style="margin-top:6px"></div>
+      <button class="btn danger" data-act="syncDisconnect" style="margin-top:10px">${esc(t('syncDisconnect'))}</button></div>`;
+  }
   let confirmArmed = null;
   function armed(key) { if (confirmArmed === key) { confirmArmed = null; return true; } confirmArmed = key; toast(t('confirmAgain')); setTimeout(() => { if (confirmArmed === key) confirmArmed = null; }, 4000); return false; }
 
@@ -595,14 +742,17 @@
       if (ds.embeddedPhotos && typeof ds.embeddedPhotos === 'object') {   // phone package: photos travel inside the JSON
         let n = 0;
         for (const [f, img] of Object.entries(ds.embeddedPhotos)) {
+          if (f.startsWith('new:') && img && typeof img.full === 'string' && img.full.startsWith('data:image/')) { await Data.kvSet(Data.newImgKey('local', f.slice(4)), img); S.imgCache.set(Data.newImgKey('local', f.slice(4)), img); n++; continue; }
           if (img && typeof img.full === 'string' && img.full.startsWith('data:image/') && typeof img.thumb === 'string' && img.thumb.startsWith('data:image/')) {
             await Data.kvSet(Data.imgKey('local', f), { full: img.full, thumb: img.thumb }); S.imgCache.set(Data.imgKey('local', f), img); n++;
           }
         }
         delete ds.embeddedPhotos; toast(t('photosLinked', { n }));
       }
+      const packEvents = Array.isArray(ds.events) ? ds.events : null; delete ds.events;
       const ok = await Data.saveLocalDataset(ds); if (!ok) toast(t('storageWarn'));
       await activate('local', ds);
+      if (packEvents) await mergeEvents(packEvents, null, true);
       $('#loadMsg') && ($('#loadMsg').textContent = t('loaded', { n: ds.concentrators.length }));
       renderMore(); fitData(); toast(t('loaded', { n: ds.concentrators.length }));
     } catch { toast(t('badFile')); }
@@ -632,18 +782,44 @@
       const k = Data.imgKey('local', p.file); const v = S.imgCache.get(k) || await Data.kvGet(k);
       if (v) { out.embeddedPhotos[p.file] = { full: v.full, thumb: v.thumb }; n++; }
     }
+    out.events = S.events.map(e => ({ eid: e.eid, cid: e.cid, type: e.type, at: e.at, by: e.by, data: e.data }));
+    for (const e of S.events) if (e.type === 'photo') { const k = Data.newImgKey(S.mode, e.data.pid); const v = S.imgCache.get(k) || await Data.kvGet(k); if (v) out.embeddedPhotos['new:' + e.data.pid] = v; }
     download(out, 'koncentrator-telefon.json');
     if (msg) msg.textContent = t('packDone', { n }); toast(t('packDone', { n }));
   }
   async function exportChanges() {
     const photos = {};
-    for (const ch of Object.values(S.ch)) for (const p of ch.photos || []) { const v = S.imgCache.get(Data.newImgKey(S.mode, p.pid)) || await Data.kvGet(Data.newImgKey(S.mode, p.pid)); if (v) photos[p.pid] = v.full; }
-    const out = { schema: 'koncentrator-kort-changes/1', exportedAt: new Date().toISOString(), by: S.prefs.name || '', mode: S.mode, datasetGeneratedAt: S.ds.generatedAt || '', changes: S.ch, photos };
-    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `koncentrator-aendringer-${(S.prefs.name || 'montoer').replace(/\W+/g, '_')}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
-    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    for (const e of S.events) if (e.type === 'photo') { const k = Data.newImgKey(S.mode, e.data.pid); const v = S.imgCache.get(k) || await Data.kvGet(k); if (v) photos[e.data.pid] = v; }
+    const out = { schema: 'koncentrator-kort-changes/2', exportedAt: new Date().toISOString(), by: S.prefs.name || '', mode: S.mode, datasetGeneratedAt: S.ds.generatedAt || '',
+      events: S.events.map(e => ({ eid: e.eid, cid: e.cid, type: e.type, at: e.at, by: e.by, data: e.data })), photos };
+    download(out, `koncentrator-aendringer-${(S.prefs.name || 'montoer').replace(/\W+/g, '_')}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`);
   }
+  async function mergeEvents(list, photos, remote) {
+    const known = new Set(S.events.map(e => e.eid)); let added = 0;
+    for (const e of list || []) {
+      if (!e || !e.eid || known.has(e.eid) || !/^(verify|placement|note|photo|report)$/.test(e.type)) continue;
+      S.events.push({ eid: e.eid, cid: String(e.cid), type: e.type, at: e.at, by: e.by, data: e.data || {}, synced: true, remote: !!remote }); known.add(e.eid); added++;
+    }
+    for (const [pid, v] of Object.entries(photos || {})) {
+      const img = typeof v === 'string' ? { full: v, thumb: v } : v;
+      if (img && typeof img.full === 'string' && img.full.startsWith('data:image/')) { await Data.kvSet(Data.newImgKey(S.mode, pid), img); S.imgCache.set(Data.newImgKey(S.mode, pid), img); }
+    }
+    if (added) { await Data.saveEvents(S.mode, S.events); rebuildCh(); renderAll(); }
+    return added;
+  }
+  async function importChangeFiles(files) {
+    let added = 0, bad = 0;
+    for (const f of files) {
+      try {
+        const j = JSON.parse(await f.text());
+        if (j.schema === 'koncentrator-kort-changes/2') added += await mergeEvents(j.events, j.photos, true);
+        else if (j.schema === 'koncentrator-kort-changes/1') added += await mergeEvents(Data.changesToEvents(j.changes).map(e => Object.assign(e, { synced: true })), j.photos, true);
+        else bad++;
+      } catch { bad++; }
+    }
+    toast(t('importDone', { n: added }) + (bad ? ' · ' + t('badFile') : '')); renderMore();
+  }
+
 
   /* ---------------- events ---------------- */
   function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2800); }
@@ -679,13 +855,13 @@
       case 'wizard': openWizard(r.id); break;
       case 'addPhoto': takePhoto(r.id, ''); break;
       case 'addNote': noteSheet(r.id); break;
-      case 'saveNote': { const v = $('#noteTxt').value.trim(); if (!v) return; const ch = chFor(r.id); (ch.notes = ch.notes || []).push({ text: v, at: new Date().toISOString(), by: S.prefs.name || t('unknownUser') }); closeSheet(); await commit(r.id, 'note'); toast(t('noteSaved')); break; }
+      case 'saveNote': { const v = $('#noteTxt').value.trim(); if (!v) return; closeSheet(); await addEvent(r.id, 'note', { text: v }); toast(t('noteSaved')); break; }
       case 'report': reportSheet(r.id); break;
       case 'saveReport': { const k = ($('[data-rp][aria-pressed="true"]') || {}).dataset.rp || 'other'; const txt = $('#rpTxt').value.trim();
-        const ch = chFor(r.id); if (k === 'notfound' || k === 'gone') ch.status = 'RequiresVerification';
-        closeSheet(); await commit(r.id, 'report', t('rp_' + k) + (txt ? ': ' + txt : '')); toast(t('reportSaved')); break; }
-      case 'wzHere': { const wz = S.wz, me = S.me; if (!me) return; chFor(wz.id).verified = { lat: +me.lat.toFixed(6), lng: +me.lng.toFixed(6), acc: me.acc, at: new Date().toISOString(), by: S.prefs.name || '', simulated: !!me.simulated, source: me.simulated ? 'manual' : 'gps' };
-        await commit(wz.id, 'verify', '±' + me.acc + ' m'); toast(t('posSaved')); wz.step = 2; renderWizard(); break; }
+        closeSheet(); await addEvent(r.id, 'report', { kind: k, text: txt, status: (k === 'notfound' || k === 'gone') ? 'RequiresVerification' : null, summary: t('rp_' + k) + (txt ? ': ' + txt : '') }); toast(t('reportSaved')); break; }
+      case 'wzHere': { const wz = S.wz, me = S.me; if (!me) return;
+        await addEvent(wz.id, 'verify', { lat: +me.lat.toFixed(6), lng: +me.lng.toFixed(6), acc: me.acc, simulated: !!me.simulated, source: me.simulated ? 'manual' : 'gps', summary: (me.simulated ? '📌 ' : '±' + me.acc + ' m') });
+        toast(t('posSaved')); wz.step = 2; renderWizard(); break; }
       case 'wzNext': if (S.wz.step === 2) { if (!(S.wz.placement.room || []).length && S.wz.dirty) { toast(t('nothingChosen')); return; } await wzSavePlacement(); }
         S.wz.step = Math.min(3, S.wz.step + 1); if (S.wz.step === 3) S.wz.startedAt = S.wz.startedAt || new Date(Date.now() - 1000).toISOString(); renderWizard(); break;
       case 'wzPrev': if (S.wz.step === 2) await wzSavePlacement(); S.wz.step = Math.max(1, S.wz.step - 1); renderWizard(); break;
@@ -697,11 +873,23 @@
       case 'forget': if (!armed('forget')) return; await Data.forgetLocal(); S.imgCache.clear(); await activate('demo', Data.demoDataset()); renderMore(); fitData(); break;
       case 'export': exportChanges(); break;
       case 'phonePack': phonePack(); break;
-      case 'clearChanges': if (!armed('clear')) return; await Data.clearChanges(S.mode); S.ch = {}; renderAll(); renderMore(); break;
+      case 'importChanges': $('#chgIn').click(); break;
+      case 'saveName': { const v = ($('#nameIn').value || '').trim(); if (!v) return; S.prefs.name = v; await Data.kvSet('prefs', S.prefs); closeSheet(); toast(t('saved')); break; }
+      case 'syncConnect': { const url = ($('#syUrl').value || '').trim(), code = ($('#syCode').value || '').trim();
+        if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url) || !code) { toast(t('required')); return; }
+        $('#syncMsg').textContent = t('connecting');
+        try { await connectShared({ url, code }); setTab('map'); } catch (e) { $('#syncMsg').textContent = t('syncErr', { e: e.message }); } break; }
+      case 'syncNow': await syncNow(); break;
+      case 'copyLink': { const m = ($('#syMember').value || '').trim(); if (!m || m === S.sync.cfg.code) { toast(t('linkNeedsMember')); return; }
+        S.sync.cfg.memberCode = m; await Data.kvSet('sync:cfg', S.sync.cfg); copy(setupLink()); break; }
+      case 'uploadShared': try { await uploadToShared(); } catch (e) { toast(t('syncErr', { e: e.message })); } break;
+      case 'syncDisconnect': if (!armed('disc')) return; await Data.forgetShared(); S.sync.cfg = null; S.imgCache.clear(); await activate('demo', Data.demoDataset()); renderMore(); fitData(); break;
+      case 'clearChanges': if (!armed('clear')) return; await Data.clearChanges(S.mode); S.events = []; rebuildCh(); renderAll(); renderMore(); break;
       case 'showIncomplete': S.filters.info = new Set(['incomplete']); S.filters.tech = new Set(['radiomesh']); setTab('list'); renderAll(); break;
     }
   });
   $('#jsonIn').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) loadJsonFile(f); });
+  $('#chgIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) importChangeFiles(fs); });
   $('#dirIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) loadPhotoFiles(fs); });
   $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') { if (S.wz) wzSavePlacement(); closeSheet(); } });
   $('#viewerClose').onclick = () => { $('#viewer').hidden = true; };
@@ -714,15 +902,25 @@
   window.addEventListener('resize', () => { if (S.detail && !$('#v-detail').hidden) showView('detail'); else showView(S.tab); });
 
   /* ---------------- boot ---------------- */
-  async function activate(mode, ds) { S.mode = mode; S.ds = ds; S.ch = await Data.getChanges(mode); S.detail = null; S.effCache.clear(); applyI18n(); renderAll(); }
+  async function activate(mode, ds) { S.mode = mode; S.ds = ds; S.events = await Data.getEvents(mode); rebuildCh(); S.detail = null; applyI18n(); renderAll(); }
   (async function boot() {
     $('#listWrap').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     S.prefs = Object.assign({ name: '', lang: 'da' }, (await Data.kvGet('prefs')) || {});
     S.lang = I18N[S.prefs.lang] ? S.prefs.lang : 'da';
     try { S.dict = await Data.loadDictionary(); } catch { S.dict = { categories: {} }; toast('placement-dictionary.json ?'); }
     initMap();
-    const { mode, ds } = await Data.loadActive();
-    await activate(mode, ds); setTab('map'); fitData();
+    S.sync.cfg = (await Data.kvGet('sync:cfg')) || null;
+    S.sync.state = (await Data.kvGet('sync:state')) || { since: 0, version: '' };
+    const m = location.hash.match(/^#setup=([A-Za-z0-9+/=]+)$/);
+    if (m) {
+      history.replaceState(null, '', location.pathname + location.search);
+      try { const cfg = JSON.parse(decodeURIComponent(escape(atob(m[1])))); if (/^https:\/\/script\.google(usercontent)?\.com\//.test(cfg.url) && cfg.code) { toast(t('setupLinkOk')); S.sync.cfg = null; await connectShared({ url: cfg.url, code: cfg.code }, true).catch(() => toast(t('syncUnauthorized'))); } } catch { toast(t('badFile')); }
+    }
+    if (!S.mode || S.mode === 'demo' || !S.ds) {
+      const { mode, ds } = await Data.loadActive();
+      if (mode !== 'shared' || S.sync.cfg) await activate(mode, ds); else await activate('demo', Data.demoDataset());
+    }
+    setTab('map'); fitData(); if (S.mode === 'shared') scheduleSync(200);
     let granted = false;
     try { if (navigator.permissions) { const p = await navigator.permissions.query({ name: 'geolocation' }); granted = p.state === 'granted'; if (p.state === 'denied') S.gpsFailShown = true; } } catch {}
     if (granted) startGps();
