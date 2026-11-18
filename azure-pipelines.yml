@@ -1,0 +1,32 @@
+# Koncentrator-kort: runs in Azure DevOps on every push to main on GitHub (same setup as LinkIQ).
+# 1. checks the app (texts in DA/EN/RO, dictionary, syntax, no real-data files),
+# 2. publishes app/ to Azure Static Web Apps (the address the installers use, login with Microsoft Entra ID).
+# Publishing needs two pipeline variables: deployment_token (secret; Azure portal:
+# Static Web App > Overview > Manage deployment token) and publish_enabled = true.
+# Until publish_enabled is set, the pipeline only checks.
+trigger:
+  branches:
+    include: [main]
+pr: none
+
+jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+        fetchDepth: 1
+        submodules: false
+
+      - script: node tools/check.js
+        displayName: Check app
+
+      - task: AzureStaticWebApp@0
+        displayName: Publish to Azure Static Web Apps
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['publish_enabled'], 'true'))
+        inputs:
+          app_location: app
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
+          azure_static_web_apps_api_token: $(deployment_token)

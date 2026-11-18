@@ -43,18 +43,12 @@ Fișier unic (pentru telefon sau demo): `python tools/build_single.py` → `dist
 În aplicație: **Mere → Indlæs rigtige data**: 1) `koncentrator-data.json`, 2) folderul `poze_concentratoare`.
 Datele și fotografiile se salvează doar în browserul acelui dispozitiv (IndexedDB) și pot fi șterse din același ecran.
 
-### Publicare demo
-GitHub Pages pentru un repository **privat** cere un plan GitHub plătit (Pro/Team). Demo-ul cu date fictive se poate arăta
-și ca fișier unic. Pentru folosirea reală pe telefoane urmează Azure Static Web Apps + Entra ID (cazul IT 0008075).
+### Publicare (ca la LinkIQ)
+**Azure Static Web Apps prin Azure DevOps** – `azure-pipelines.yml`: la fiecare modificare pe `main` verifică aplicația și publică `app/`.
+Accesul îl stabilește `app/staticwebapp.config.json`: doar utilizatorii invitați cu rolul `montor` intră (login Microsoft Entra ID; login cu GitHub blocat).
+Necesar în Azure DevOps: un pipeline nou din acest repository și variabilele `deployment_token` (secretă) și `publish_enabled` = `true`.
 
-## Datele reale (doar local)
-Toate fișierele reale stau în OneDrive Kredsløb, de ex. `Infrastructura\date-reale\`:
-```
-python tools/mymaps_import.py "<export>.kmz" --out "<date-reale>/migration"
-python tools/merge_ready.py "<READy>.csv" "<date-reale>/migration/concentrators.csv" "<date-reale>/migration/photos.csv" --out "<date-reale>/merged"
-```
-Apoi fișierul unic pentru aplicație:
-```
-python tools/build_dataset.py --radiomesh "<date-reale>/merged/concentrators_merged.csv" --photos "<date-reale>/poze_concentratoare/raport_poze.csv" --linkiq-sites "<date-reale>/linkiq_sites.csv" --linkiq-concentrators "<date-reale>/linkiq_koncentratorer.csv" --out "<date-reale>/koncentrator-data.json"
-```
-Clonați repository-ul în afara OneDrive (de ex. `C:\dev\koncentrator-kort`).
+**GitHub Pages (opțional, pentru test)** – `.github/workflows/pages.yml`: publică doar aplicația cu datele demo, fără login.
+Se activează cu Settings → Pages → Source = *GitHub Actions* și variabila de repository `PAGES_ENABLED` = `true`.
+
+Datele reale nu se publică în niciuna din variante: se încarcă pe dispozitiv (Mere → Indlæs rigtige data).
