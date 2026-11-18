@@ -107,6 +107,11 @@
     });
     if (S.me) { for (const x of r) x._d = x.lat != null ? hav(S.me, x) : Infinity; r.sort((a, b) => a._d - b._d); }
     else r.sort((a, b) => (a.kind === b.kind ? String(a.id).localeCompare(String(b.id), undefined, { numeric: true }) : a.kind === 's' ? 1 : -1));
+    if (words.length) {   // an ID typed in the search box always comes first
+      const q = S.q.trim().toLowerCase();
+      const rank = (x) => { const id = String(x.id).toLowerCase(); return id === q ? 0 : id.startsWith(q) ? 1 : 2; };
+      r.sort((a, b) => rank(a) - rank(b));
+    }
     return r;
   }
 
@@ -526,6 +531,7 @@
         <button class="btn outline" data-act="pickJson">📄 ${esc(t('pickJson'))}</button>
         <button class="btn outline" data-act="pickPhotos" style="margin-top:8px" ${S.mode === 'local' ? '' : 'disabled'}>🖼 ${esc(t('pickPhotos'))}</button>
         <div id="loadMsg" class="muted" style="margin-top:8px"></div>
+        ${S.mode === 'local' ? `<button class="btn primary" data-act="phonePack" style="margin-top:12px">📱 ${esc(t('phonePack'))}</button><p class="muted" style="margin:6px 0 0">${esc(t('phonePackHint'))}</p>` : ''}
         ${S.mode === 'local' ? `<button class="btn ghost" data-act="useDemo" style="margin-top:12px">${esc(t('useDemo'))}</button>
           <button class="btn danger" data-act="forget" style="margin-top:8px">${esc(t('forget'))}</button>` : ''}</div>
       <div class="card"><h2>${esc(t('yourName'))}</h2><input class="f" id="myName" maxlength="60" value="${esc(S.prefs.name)}" autocomplete="name"></div>
@@ -539,6 +545,15 @@
     try {
       const ds = Data.validate(JSON.parse(await file.text()));
       ds.demo = false;
+      if (ds.embeddedPhotos && typeof ds.embeddedPhotos === 'object') {   // phone package: photos travel inside the JSON
+        let n = 0;
+        for (const [f, img] of Object.entries(ds.embeddedPhotos)) {
+          if (img && typeof img.full === 'string' && img.full.startsWith('data:image/') && typeof img.thumb === 'string' && img.thumb.startsWith('data:image/')) {
+            await Data.kvSet(Data.imgKey('local', f), { full: img.full, thumb: img.thumb }); S.imgCache.set(Data.imgKey('local', f), img); n++;
+          }
+        }
+        delete ds.embeddedPhotos; toast(t('photosLinked', { n }));
+      }
       const ok = await Data.saveLocalDataset(ds); if (!ok) toast(t('storageWarn'));
       await activate('local', ds);
       $('#loadMsg') && ($('#loadMsg').textContent = t('loaded', { n: ds.concentrators.length }));
@@ -557,6 +572,21 @@
     }
     const msg = $('#loadMsg'); if (msg) msg.textContent = t('photosLinked', { n: linked }) + (missing ? ' · ' + t('photosMissing', { n: missing }) : '');
     toast(t('photosLinked', { n: linked })); renderAll();
+  }
+  function download(obj, name) {
+    const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }
+  async function phonePack() {
+    const msg = $('#loadMsg'); if (msg) msg.textContent = t('packing');
+    const out = Object.assign({}, S.ds, { embeddedPhotos: {} }); let n = 0;
+    for (const c of S.ds.concentrators) for (const p of c.photos || []) {
+      const k = Data.imgKey('local', p.file); const v = S.imgCache.get(k) || await Data.kvGet(k);
+      if (v) { out.embeddedPhotos[p.file] = { full: v.full, thumb: v.thumb }; n++; }
+    }
+    download(out, 'koncentrator-telefon.json');
+    if (msg) msg.textContent = t('packDone', { n }); toast(t('packDone', { n }));
   }
   async function exportChanges() {
     const photos = {};
@@ -616,6 +646,7 @@
       case 'useDemo': await Data.useDemo(); await activate('demo', Data.demoDataset()); renderMore(); fitData(); break;
       case 'forget': if (!armed('forget')) return; await Data.forgetLocal(); S.imgCache.clear(); await activate('demo', Data.demoDataset()); renderMore(); fitData(); break;
       case 'export': exportChanges(); break;
+      case 'phonePack': phonePack(); break;
       case 'clearChanges': if (!armed('clear')) return; await Data.clearChanges(S.mode); S.ch = {}; renderAll(); renderMore(); break;
       case 'showIncomplete': S.filters.info = new Set(['incomplete']); S.filters.tech = new Set(['radiomesh']); setTab('list'); renderAll(); break;
     }
@@ -629,7 +660,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!$('#viewer').hidden) $('#viewer').hidden = true; else if (!$('#sheet').hidden) { if (S.wz) wzSavePlacement(); closeSheet(); } } });
   let qT; $('#q').addEventListener('input', (e) => { clearTimeout(qT); qT = setTimeout(() => { S.q = e.target.value; S.listLimit = 80; renderAll();
     if (S.q && !$('#v-map').hidden && !wide()) { const r = filtered().filter(x => x.lat != null); if (r.length === 1) openDetail(r[0].kind, r[0].id); else if (r.length && r.length < 300) map.fitBounds(L.latLngBounds(r.map(x => [x.lat, x.lng])).pad(.2), { maxZoom: 17 }); } }, 220); });
-  $('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); const r = filtered(); if (r.length) openDetail(r[0].kind, r[0].id); } });
+  $('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(qT); S.q = e.target.value; e.target.blur(); renderAll(); const r = filtered(); if (r.length) openDetail(r[0].kind, r[0].id); } });
   window.addEventListener('resize', () => { if (S.detail && !$('#v-detail').hidden) showView('detail'); else showView(S.tab); });
 
   /* ---------------- boot ---------------- */
