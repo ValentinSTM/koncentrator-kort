@@ -2,7 +2,7 @@
 'use strict';
 window.I18N = {
   da: {
-    appTitle:'Koncentrator-kort', srcDemo:'DEMO', srcLocal:'LOKALE DATA', searchPh:'Søg ID, adresse, postnr., sted…',
+    appTitle:'Koncentrator-kort', posTitle:'Min position', posGps:'Brug telefonens / PC\'ens GPS', posMap:'Vælg på kortet', posAddr:'Skriv en adresse', posAddrPh:'Fx Langørvej 57 eller Viby 8260', posCoordHint:'Du kan også skrive koordinater, fx 56.1838, 10.1119', posNoMatch:'Ingen adresse fundet i data. Prøv gadenavn + nummer, eller vælg på kortet.', posSet:'Position sat: {p}', posFromData:'Adresserne søges kun i de indlæste data – intet sendes på internettet.', posManual:'Manuel position', posChange:'Ændr', posManualVerify:'Din position er sat manuelt, ikke målt med GPS. Den gemmes som «placeret manuelt», ikke som GPS-måling.', cs_manual:'Placeret manuelt på kort', posTapMap:'Tryk på kortet, hvor du står', srcDemo:'DEMO', srcLocal:'LOKALE DATA', searchPh:'Søg ID, adresse, postnr., sted…',
     tabMap:'Kort', tabList:'Liste', tabMore:'Mere', filter:'Filter',
     nearest:'Nærmest dig', showNearest:'Vis nærmeste koncentratorer', gpsWait:'Finder din position…',
     gpsDenied:'GPS ikke tilgængelig. Tryk 🎯 og derefter på kortet for at vælge din position.', simTap:'Tryk på kortet, hvor du står',
@@ -32,7 +32,7 @@ window.I18N = {
     st_Active:'Aktiv', st_RequiresVerification:'Til verifikation', st_Decommissioned:'Nedlagt', st_ACTIVE:'Aktiv',
     dataTitle:'Data', loadLocal:'Indlæs rigtige data (lokalt)',
     loadLocalHint:'Vælg koncentrator-data.json og fotomappen fra OneDrive (date-reale). Data gemmes kun på denne enhed og sendes ingen steder hen.',
-    pickJson:'1. Vælg datafil (koncentrator-data.json)', pickPhotos:'2. Vælg fotomappe (poze_concentratoare)', useDemo:'Skift til demodata', forget:'Fjern rigtige data fra denne enhed',
+    pickJson:'1. Vælg datafil (koncentrator-data.json)', pickPhotos:'2. Vælg fotomappe (poze_concentratoare)', useDemo:'Skift til demodata', forget:'Fjern rigtige data fra denne enhed', phonePack:'Lav én fil til telefon (data + fotos)', phonePackHint:'Laver koncentrator-telefon.json med alle fotos i mindre størrelse. Gem den i OneDrive og vælg den på telefonen under 1.', packing:'Laver fil…', packDone:'Fil gemt: {n} fotos med',
     loaded:'{n} koncentratorer indlæst', photosLinked:'{n} fotos tilknyttet', photosMissing:'{n} fotos mangler i mappen', loadingPhotos:'Behandler fotos {i}/{n}…',
     badFile:'Filen kan ikke læses som koncentrator-data.json', changes:'Dine ændringer', changesN:'{n} koncentratorer ændret på denne enhed',
     exportChanges:'Eksportér ændringer', exportHint:'Send filen til kontoret. Når appen kører i Azure, synkroniseres det automatisk.', clearChanges:'Slet mine lokale ændringer',
@@ -48,7 +48,7 @@ window.I18N = {
     dirs:['N','NØ','Ø','SØ','S','SV','V','NV']
   },
   en: {
-    appTitle:'Concentrator map', srcDemo:'DEMO', srcLocal:'LOCAL DATA', searchPh:'Search ID, address, postcode, place…',
+    appTitle:'Concentrator map', posTitle:'My position', posGps:'Use the phone / PC GPS', posMap:'Pick on the map', posAddr:'Type an address', posAddrPh:'E.g. Langørvej 57 or Viby 8260', posCoordHint:'You can also type coordinates, e.g. 56.1838, 10.1119', posNoMatch:'No address found in the data. Try street + number, or pick on the map.', posSet:'Position set: {p}', posFromData:'Addresses are searched only in the loaded data – nothing is sent over the internet.', posManual:'Manual position', posChange:'Change', posManualVerify:'Your position was set manually, not measured by GPS. It is saved as «placed manually», not as a GPS measurement.', cs_manual:'Placed manually on the map', posTapMap:'Tap the map where you are', srcDemo:'DEMO', srcLocal:'LOCAL DATA', searchPh:'Search ID, address, postcode, place…',
     tabMap:'Map', tabList:'List', tabMore:'More', filter:'Filter',
     nearest:'Nearest to you', showNearest:'Show nearest concentrators', gpsWait:'Finding your position…',
     gpsDenied:'GPS not available. Tap 🎯 and then the map to choose your position.', simTap:'Tap the map where you are',
@@ -78,7 +78,7 @@ window.I18N = {
     st_Active:'Active', st_RequiresVerification:'To verify', st_Decommissioned:'Decommissioned', st_ACTIVE:'Active',
     dataTitle:'Data', loadLocal:'Load real data (locally)',
     loadLocalHint:'Choose koncentrator-data.json and the photo folder from OneDrive (date-reale). Data is kept on this device only and is not sent anywhere.',
-    pickJson:'1. Choose data file (koncentrator-data.json)', pickPhotos:'2. Choose photo folder (poze_concentratoare)', useDemo:'Switch to demo data', forget:'Remove real data from this device',
+    pickJson:'1. Choose data file (koncentrator-data.json)', pickPhotos:'2. Choose photo folder (poze_concentratoare)', useDemo:'Switch to demo data', forget:'Remove real data from this device', phonePack:'Make one file for the phone (data + photos)', phonePackHint:'Creates koncentrator-telefon.json with all photos in a smaller size. Save it in OneDrive and choose it on the phone under 1.', packing:'Creating file…', packDone:'File saved: {n} photos included',
     loaded:'{n} concentrators loaded', photosLinked:'{n} photos linked', photosMissing:'{n} photos missing from the folder', loadingPhotos:'Processing photos {i}/{n}…',
     badFile:'The file cannot be read as koncentrator-data.json', changes:'Your changes', changesN:'{n} concentrators changed on this device',
     exportChanges:'Export changes', exportHint:'Send the file to the office. Once the app runs in Azure, this is synchronised automatically.', clearChanges:'Delete my local changes',
@@ -94,7 +94,7 @@ window.I18N = {
     dirs:['N','NE','E','SE','S','SW','W','NW']
   },
   ro: {
-    appTitle:'Harta concentratoarelor', srcDemo:'DEMO', srcLocal:'DATE LOCALE', searchPh:'Caută ID, adresă, cod poștal, loc…',
+    appTitle:'Harta concentratoarelor', posTitle:'Poziția mea', posGps:'Folosește GPS-ul telefonului / PC-ului', posMap:'Alege pe hartă', posAddr:'Scrie o adresă', posAddrPh:'Ex. Langørvej 57 sau Viby 8260', posCoordHint:'Poți scrie și coordonate, ex. 56.1838, 10.1119', posNoMatch:'Nicio adresă găsită în date. Încearcă stradă + număr sau alege pe hartă.', posSet:'Poziție setată: {p}', posFromData:'Adresele se caută doar în datele încărcate – nimic nu se trimite pe internet.', posManual:'Poziție manuală', posChange:'Schimbă', posManualVerify:'Poziția ta e setată manual, nu măsurată cu GPS. Se salvează ca «plasată manual», nu ca măsurare GPS.', cs_manual:'Plasat manual pe hartă', posTapMap:'Apasă pe hartă unde te afli', srcDemo:'DEMO', srcLocal:'DATE LOCALE', searchPh:'Caută ID, adresă, cod poștal, loc…',
     tabMap:'Hartă', tabList:'Listă', tabMore:'Mai mult', filter:'Filtru',
     nearest:'Cele mai apropiate', showNearest:'Arată cele mai apropiate concentratoare', gpsWait:'Se caută poziția…',
     gpsDenied:'GPS indisponibil. Apasă 🎯 și apoi pe hartă ca să alegi poziția.', simTap:'Apasă pe hartă unde te afli',
@@ -124,7 +124,7 @@ window.I18N = {
     st_Active:'Activ', st_RequiresVerification:'De verificat', st_Decommissioned:'Dezafectat', st_ACTIVE:'Activ',
     dataTitle:'Date', loadLocal:'Încarcă datele reale (local)',
     loadLocalHint:'Alege koncentrator-data.json și folderul cu fotografii din OneDrive (date-reale). Datele rămân doar pe acest dispozitiv și nu se trimit nicăieri.',
-    pickJson:'1. Alege fișierul de date (koncentrator-data.json)', pickPhotos:'2. Alege folderul cu fotografii (poze_concentratoare)', useDemo:'Treci la datele demo', forget:'Șterge datele reale de pe acest dispozitiv',
+    pickJson:'1. Alege fișierul de date (koncentrator-data.json)', pickPhotos:'2. Alege folderul cu fotografii (poze_concentratoare)', useDemo:'Treci la datele demo', forget:'Șterge datele reale de pe acest dispozitiv', phonePack:'Fă un singur fișier pentru telefon (date + fotografii)', phonePackHint:'Creează koncentrator-telefon.json cu toate fotografiile micșorate. Salvează-l în OneDrive și alege-l pe telefon la pasul 1.', packing:'Se creează fișierul…', packDone:'Fișier salvat: {n} fotografii incluse',
     loaded:'{n} concentratoare încărcate', photosLinked:'{n} fotografii legate', photosMissing:'{n} fotografii lipsesc din folder', loadingPhotos:'Se procesează fotografiile {i}/{n}…',
     badFile:'Fișierul nu poate fi citit ca koncentrator-data.json', changes:'Modificările tale', changesN:'{n} concentratoare modificate pe acest dispozitiv',
     exportChanges:'Exportă modificările', exportHint:'Trimite fișierul la birou. Când aplicația rulează în Azure, sincronizarea se face automat.', clearChanges:'Șterge modificările mele locale',

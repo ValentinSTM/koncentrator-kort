@@ -27,6 +27,7 @@ hartă cu poziția montatorului, descrierea exactă a locului de montaj, fotogra
 - fișa: busolă cu distanța și direcția spre concentrator, **unde e montat** (descriere compusă din dicționar + nota originală), fotografii, adresă, coordonate, calitatea datelor;
 - buton mare **Google Maps** pentru navigare;
 - **Completează în 1 minut**: 1) „Sunt lângă concentrator” (GPS), 2) unde e – doar butoane, 3) fotografii;
+- **poziție manuală** când GPS-ul lipsește (ex. PC cu localizarea oprită): 📌 → alegi pe hartă, scrii o adresă (căutată doar în datele încărcate) sau coordonate; aplicația o ține minte;
 - note, raportare problemă, istoric; modificările rămân pe dispozitiv și se exportă ca fișier pentru birou (până la Azure).
 
 ## Rulare locală
