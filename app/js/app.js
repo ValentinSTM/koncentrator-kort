@@ -325,12 +325,20 @@
   function renderNear() {
     const el = $('#nearSheet');
     if (!S.me) { el.innerHTML = `<div class="row"><button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button><button class="btn outline big" data-act="sim" style="flex:.45" aria-label="${esc(t('posTitle'))}">📌</button></div>`; return; }
+    if (sharedEmptyHtml()) { el.innerHTML = sharedEmptyHtml(); return; }
     const r = filtered().filter(x => x.kind === 'c' && x.status === 'Active' && x.lat != null).slice(0, 2);
     el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button></div><div class="list">${r.map(itemHtml).join('')}</div>`;
     hydrate(el);
   }
+  function sharedEmptyHtml() {
+    if (S.mode !== 'shared' || S.ds.concentrators.length) return '';
+    const admin = S.sync.cfg && S.sync.cfg.admin;
+    return `<div class="alert warn"><span class="ic">⚠</span><span>${esc(admin ? t('sharedEmptyAdmin') : t('sharedEmptyMember'))}</span></div>`
+      + (admin ? `<button class="btn primary" data-tab="more">⬆ ${esc(t('uploadShared'))}</button>` : '');
+  }
   function renderList() {
     const r = filtered(); const w = $('#listWrap');
+    if (sharedEmptyHtml()) { w.innerHTML = sharedEmptyHtml(); return; }
     if (!r.length) { w.innerHTML = `<div class="empty"><b>${esc(t('noResults'))}</b>${esc(t('noResultsHint'))}</div><button class="btn ghost" data-act="clearFilters">${esc(t('clear'))}</button>`; return; }
     const nc = r.filter(x => x.kind === 'c').length, ns = r.length - nc;
     w.innerHTML = `<div class="muted">${esc(t('found', { n: nc }))}${ns ? ' · ' + esc(t('sitesN', { n: ns })) : ''}</div><div class="list">${r.slice(0, S.listLimit).map(itemHtml).join('')}</div>`
@@ -704,7 +712,7 @@
         ${S.mode !== 'shared' ? `<button class="btn danger" data-act="clearChanges" ${changed ? '' : 'disabled'}>${esc(t('clearChanges'))}</button>` : ''}</div>
       ${sharedCard()}
       <div class="card"><h2>${esc(t('dataTitle'))}</h2>
-        <div class="alert ${S.mode === 'local' ? 'ok' : 'info'}"><span class="ic">${S.mode === 'local' ? '🔒' : 'ℹ'}</span><span>${S.mode === 'local' ? esc(t('loaded', { n: S.ds.concentrators.length })) : esc(t('aboutDemo'))}</span></div>
+        <div class="alert ${S.mode !== 'demo' ? 'ok' : 'info'}"><span class="ic">${S.mode !== 'demo' ? '🔒' : 'ℹ'}</span><span>${S.mode !== 'demo' ? esc(t('loaded', { n: S.ds.concentrators.length })) : esc(t('aboutDemo'))}</span></div>
         <h3 style="margin:14px 0 6px">${esc(t('loadLocal'))}</h3><p class="muted" style="margin:0 0 8px">${esc(t('loadLocalHint'))}</p>
         <button class="btn outline" data-act="pickJson">📄 ${esc(t('pickJson'))}</button>
         <button class="btn outline" data-act="pickPhotos" style="margin-top:8px" ${S.mode === 'local' ? '' : 'disabled'}>🖼 ${esc(t('pickPhotos'))}</button>
@@ -728,7 +736,7 @@
       <button class="btn primary" data-act="syncNow" style="margin-top:10px" ${S.sync.busy ? 'disabled' : ''}>⟳ ${esc(t('syncNow'))}</button>
       ${c.admin ? `<label class="f" for="syMember">${esc(t('memberCode'))}</label><input class="f" id="syMember" autocomplete="off" value="${esc(c.memberCode || '')}">
         <button class="btn outline" data-act="copyLink" style="margin-top:8px">🔗 ${esc(t('copyLink'))}</button><p class="muted" style="margin:6px 0 0">${esc(t('linkHint'))}</p>
-        <button class="btn outline" data-act="uploadShared" style="margin-top:10px">⬆ ${esc(t('uploadShared'))}</button>` : ''}
+        <button class="btn ${S.ds.concentrators.length ? 'outline' : 'primary big'}" data-act="uploadShared" style="margin-top:10px">⬆ ${esc(t('uploadShared'))}</button>` : ''}
       <div id="syncMsg" class="muted" style="margin-top:6px"></div>
       <button class="btn danger" data-act="syncDisconnect" style="margin-top:10px">${esc(t('syncDisconnect'))}</button></div>`;
   }
