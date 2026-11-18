@@ -3,7 +3,7 @@
  "coverage": {
   "concentrators": 1162,
   "withPlaceText": 1047,
-  "roomRecognised": 978,
+  "roomRecognised": 975,
   "sideRecognised": 93,
   "heightRecognised": 98,
   "floorRecognised": 75,
@@ -46,7 +46,7 @@
     "key": "skur",
     "da": "Skur / redskabsrum",
     "en": "Shed / tool room",
-    "ro": "Skur / magazie unelte",
+    "ro": "Magazie / magazie de unelte",
     "pattern": "skur|redskab|havehus|udhus|øverum",
     "count": 284
    },
@@ -54,7 +54,7 @@
     "key": "cykelskur",
     "da": "Cykelskur / cykelrum",
     "en": "Bike shed",
-    "ro": "Adăpost biciclete",
+    "ro": "Magazie / adăpost biciclete",
     "pattern": "cykel",
     "count": 26
    },
@@ -171,12 +171,12 @@
     "count": 10
    },
    {
-    "key": "ava_anlaeg",
-    "da": "Kredsløb-/AVA-anlæg (bygværk, fjernvarmestation)",
-    "en": "Kredsløb/AVA site (plant, district-heating station)",
-    "ro": "Instalație Kredsløb/AVA (clădire tehnică, stație termoficare)",
-    "pattern": "\\bava\\b.*(anlæg|bygning|byg)|bygværk|byg\\.|fjernvarme ?station|anlæg \\d",
-    "count": 5
+    "key": "anlaeg_bygning",
+    "da": "Eget anlæg (Kredsløb/AVA: bygværk, pumperum, station)",
+    "en": "Own site (Kredsløb/AVA: plant, pump room, station)",
+    "ro": "Instalație proprie (Kredsløb/AVA: clădire tehnică, cameră pompe, stație)",
+    "pattern": "(affald ?varme|affalvarme|\\\\bava)[ -]*(anlæg|bygværk|bygning|byg\\\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\\\s*)anlæg \\\\d|kredsløb",
+    "count": 9
    },
    {
     "key": "kontor",
@@ -469,6 +469,14 @@
     "ro": "Persoană de contact (nume / tel.)",
     "pattern": "kontakt|spørg efter|telefonnummer|\\b\\d{8}\\b",
     "count": 4
+   },
+   {
+    "key": "eget_anlaeg",
+    "da": "Eget anlæg – ingen aftale nødvendig",
+    "en": "Own site – no appointment needed",
+    "ro": "Instalație proprie – nu e nevoie de programare",
+    "pattern": "(affald ?varme|affalvarme|\\\\bava)[ -]*(anlæg|bygværk|bygning|byg\\\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\\\s*)anlæg \\\\d|kredsløb",
+    "count": 18
    },
    {
     "key": "institution",

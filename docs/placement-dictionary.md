@@ -1,7 +1,6 @@
 # Dicționarul pozițiilor fizice (DA / EN / RO)
 
-Construit din descrierile reale din Google My Maps (câmpul `ADR`, partea de după cod poștal).
-Fișierul conține doar vocabularul și numărări agregate, nicio adresă sau date despre concentratoare individuale.
+Construit din descrierile reale din Google My Maps. Conține doar vocabularul și numărări agregate, nicio adresă și nicio dată despre concentratoare individuale.
 
 ## Ce arată datele existente
 
@@ -9,16 +8,16 @@ Fișierul conține doar vocabularul și numărări agregate, nicio adresă sau d
 |---|---:|
 | concentratoare | 1162 |
 | cu text despre locul fizic | 1047 |
-| tipul locului recunoscut automat | 978 |
+| tipul locului recunoscut automat | 975 |
 | descriere de un singur cuvânt (ex. „Skur”) | 516 |
 | cu parte (stânga/dreapta/după ușă…) | 93 |
 | cu înălțime (sub tavan, pe căprior) | 98 |
 | cu reper (ușă, tablou, trapă…) | 231 |
 | **descriere detaliată** (loc + parte sau înălțime) | **135** |
 
-Concluzie: aproape toate au tipul locului, dar doar ~13% au destule detalii ca să fie găsite ușor. Fluxul „Completează în 1 minut” din aplicație cere exact categoriile de mai jos, din butoane.
+Concluzie: aproape toate au tipul locului, dar doar ~13% au destule detalii. Fluxul „Completează în 1 minut” cere exact categoriile de mai jos, din butoane.
 
-Coduri găsite în text, care nu sunt descrieri de loc: `SAT 6/7/8` (170), `N01` (12), `AVA` (7). La import se mută în câmpuri separate.
+Codurile `SAT 6/7/8` și `N01` din textele vechi (etape istorice ale rețelei Radio Mesh) se elimină din descriere la import; textul original rămâne păstrat.
 
 ## Rum / tip loc / room type
 
@@ -26,7 +25,7 @@ Unde e montat (camera, construcția).
 
 | Cheie | Dansk | English | Română | Frecvență |
 |---|---|---|---|---:|
-| `skur` | Skur / redskabsrum | Shed / tool room | Skur / magazie unelte | 284 |
+| `skur` | Skur / redskabsrum | Shed / tool room | Magazie / magazie de unelte | 284 |
 | `loft` | Loft / loftrum | Loft / attic | Pod / mansardă | 224 |
 | `garage` | Garage | Garage | Garaj | 136 |
 | `teknikrum` | Teknikrum | Technical room | Cameră tehnică | 88 |
@@ -38,7 +37,7 @@ Unde e montat (camera, construcția).
 | `depotrum` | Depot- / opbevaringsrum | Storage room | Debara / depozit | 36 |
 | `vaerksted` | Værksted | Workshop | Atelier | 35 |
 | `entre` | Entré / gang / indgang | Entrance / hallway | Intrare / hol | 32 |
-| `cykelskur` | Cykelskur / cykelrum | Bike shed | Adăpost biciclete | 26 |
+| `cykelskur` | Cykelskur / cykelrum | Bike shed | Magazie / adăpost biciclete | 26 |
 | `udvendig` | Udvendig (mur / gavl / mast) | Outside (wall / gable / mast) | Exterior (perete / fronton / stâlp) | 24 |
 | `faellesrum` | Fælleshus / fællesrum | Common room / house | Spațiu comun | 22 |
 | `affald` | Skralderum / affaldsrum | Bin room | Cameră deșeuri | 19 |
@@ -46,7 +45,7 @@ Unde e montat (camera, construcția).
 | `kontor` | Kontor / viceværtsrum | Office / caretaker room | Birou / cameră administrator | 16 |
 | `halvtag` | Halvtag / overdækket / udhæng | Lean-to / covered area / eaves | Șopron / zonă acoperită / streașină | 14 |
 | `lejlighed` | I lejlighed / bolig | Inside a flat / home | În apartament / locuință | 10 |
-| `ava_anlaeg` | Kredsløb-/AVA-anlæg (bygværk, fjernvarmestation) | Kredsløb/AVA site (plant, district-heating station) | Instalație Kredsløb/AVA (clădire tehnică, stație termoficare) | 5 |
+| `anlaeg_bygning` | Eget anlæg (Kredsløb/AVA: bygværk, pumperum, station) | Own site (Kredsløb/AVA: plant, pump room, station) | Instalație proprie (Kredsløb/AVA: clădire tehnică, cameră pompe, stație) | 9 |
 
 ## Side / partea / side
 
@@ -111,12 +110,13 @@ Unde e antena, dacă nu e lângă concentrator.
 
 ## Adgang / acces / access
 
-Cum intri. Numele și numerele de telefon NU se scriu în descriere (GDPR), ci în câmpul de acces cu drepturi restrânse.
+Cum intri. `eget_anlaeg` = instalație proprie Kredsløb/AVA, nu e nevoie de programare. Numele și telefoanele persoanelor NU stau în descriere (GDPR), ci în câmpul de acces restricționat.
 
 | Cheie | Dansk | English | Română | Frecvență |
 |---|---|---|---|---:|
 | `institution` | Institution (børnehave, skole, plejehjem …) | Institution (kindergarten, school, care home …) | Instituție (grădiniță, școală, cămin …) | 23 |
 | `vicevaert` | Kontakt vicevært / varmemester | Contact caretaker | Contact administrator / fochist | 22 |
+| `eget_anlaeg` | Eget anlæg – ingen aftale nødvendig | Own site – no appointment needed | Instalație proprie – nu e nevoie de programare | 18 |
 | `kontaktperson` | Kontaktperson (navn / tlf.) | Contact person (name / phone) | Persoană de contact (nume / tel.) | 4 |
 | `noegle` | Nøgle / nøgleboks | Key / key box | Cheie / cutie chei | 2 |
 | `kode` | Kode | Code | Cod | 2 |
@@ -131,6 +131,6 @@ Cum intri. Numele și numerele de telefon NU se scriu în descriere (GDPR), ci �
 
 ## Cum se folosește
 
-- **La import:** `tools/placement_dict.py` aplică tiparele (`pattern`) pe textul vechi și propune tipul locului, partea, înălțimea și reperul. Textul original se păstrează neschimbat.
-- **În teren:** montatorul alege din aceleași chei, prin butoane. Aplicația compune descrierea în limba utilizatorului, de exemplu `skur + venstre + inden_for_doer + under_loft` → „Skur, til venstre inden for døren, oppe under loftet” / „Shed, on the left just inside the door, up under the ceiling” / „Skur, în stânga imediat după ușă, sus sub tavan”.
-- Cheile noi se adaugă numai în `app/data/placement-dictionary.json`, cu toate cele trei limbi.
+- **La import:** `tools/build_dataset.py` aplică tiparele (`pattern`) pe textul vechi și propune categoriile. Textul original se păstrează neschimbat.
+- **În teren:** montatorul alege din aceleași chei, prin butoane; aplicația compune descrierea în limba fiecărui utilizator.
+- Cheile noi se adaugă în `tools/placement_dict.py` (sursa) și se regenerează JSON-ul și acest document.

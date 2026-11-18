@@ -10,8 +10,8 @@ D = {
   ("loft",          "Loft / loftrum",            "Loft / attic",             "Pod / mansardă",          r"\bloft|\bkip\b|loftlem|spær|tagetage"),
   ("garage",        "Garage",                    "Garage",                   "Garaj",                   r"garage"),
   ("carport",       "Carport",                   "Carport",                  "Carport",                 r"carport"),
-  ("skur",          "Skur / redskabsrum",        "Shed / tool room",         "Skur / magazie unelte",   r"skur|redskab|havehus|udhus|øverum"),
-  ("cykelskur",     "Cykelskur / cykelrum",      "Bike shed",                "Adăpost biciclete",       r"cykel"),
+  ("skur",          "Skur / redskabsrum",        "Shed / tool room",         "Magazie / magazie de unelte",   r"skur|redskab|havehus|udhus|øverum"),
+  ("cykelskur",     "Cykelskur / cykelrum",      "Bike shed",                "Magazie / adăpost biciclete",       r"cykel"),
   ("affald",        "Skralderum / affaldsrum",   "Bin room",                 "Cameră deșeuri",          r"skralde|affald|container|renovation"),
   ("teknikrum",     "Teknikrum",                 "Technical room",           "Cameră tehnică",          r"teknikrum|teknikum|teknik rum|teknikskakt|skakt|ventilationsrum|pumperum|boilerrum|varmecentral|varmeveksler"),
   ("teknikskab",    "Teknikskab / højskab",      "Technical cabinet",        "Dulap tehnic",            r"teknikskab|højskab|el.?skab|fjernvarmeskab|\bskab"),
@@ -26,7 +26,7 @@ D = {
   ("udvendig",      "Udvendig (mur / gavl / mast)", "Outside (wall / gable / mast)", "Exterior (perete / fronton / stâlp)", r"udv\b|udvendig|udenfor|\bgavl|\bmast\b|på taget"),
   ("halvtag",       "Halvtag / overdækket / udhæng", "Lean-to / covered area / eaves", "Șopron / zonă acoperită / streașină", r"halvtag|overdækket|udhæng"),
   ("lejlighed",     "I lejlighed / bolig",       "Inside a flat / home",     "În apartament / locuință", r"lejlighed|bolig"),
-  ("ava_anlaeg",    "Kredsløb-/AVA-anlæg (bygværk, fjernvarmestation)", "Kredsløb/AVA site (plant, district-heating station)", "Instalație Kredsløb/AVA (clădire tehnică, stație termoficare)", r"\bava\b.*(anlæg|bygning|byg)|bygværk|byg\.|fjernvarme ?station|anlæg \d"),
+  ("anlaeg_bygning",  "Eget anlæg (Kredsløb/AVA: bygværk, pumperum, station)", "Own site (Kredsløb/AVA: plant, pump room, station)", "Instalație proprie (Kredsløb/AVA: clădire tehnică, cameră pompe, stație)", r"(affald ?varme|affalvarme|\\bava)[ -]*(anlæg|bygværk|bygning|byg\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\s*)anlæg \\d|kredsløb"),
   ("kontor",        "Kontor / viceværtsrum",     "Office / caretaker room",  "Birou / cameră administrator", r"kontor|vicevært(s|kontor)?$|tavlerum|rengøringsrum|opholdsrum|klublokal|lokalcenter"),
  ],
  "side": [
@@ -74,6 +74,7 @@ D = {
   ("noegle",        "Nøgle / nøgleboks",         "Key / key box",            "Cheie / cutie chei",      r"nøgle|key ?box"),
   ("kode",          "Kode",                      "Code",                     "Cod",                     r"\bkode"),
   ("kontaktperson", "Kontaktperson (navn / tlf.)","Contact person (name / phone)", "Persoană de contact (nume / tel.)", r"kontakt|spørg efter|telefonnummer|\b\d{8}\b"),
+  ("eget_anlaeg",   "Eget anlæg – ingen aftale nødvendig", "Own site – no appointment needed", "Instalație proprie – nu e nevoie de programare", r"(affald ?varme|affalvarme|\\bava)[ -]*(anlæg|bygværk|bygning|byg\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\s*)anlæg \\d|kredsløb"),
   ("institution",   "Institution (børnehave, skole, plejehjem …)", "Institution (kindergarten, school, care home …)", "Instituție (grădiniță, școală, cămin …)", r"børnehave|børnehus|dagtilbud|skole|plejehjem|hal\b|gym"),
  ],
  "status": [
@@ -97,10 +98,10 @@ meta = collections.Counter()
 parsed = []
 words_total = []
 for x in rows:
-    t = place_text(x); low = t.lower()
+    t = place_text(x); low = t.lower(); low_all = x["physicalLocationRaw"].lower()
     rec = {"concentratorId": x["concentratorId"], "text": t}
     for cat, items in D.items():
-        hits = [k for k, *_ , rx in items if re.search(rx, low)]
+        hits = [k for k, *_ , rx in items if re.search(rx, low_all if k == "eget_anlaeg" else low)]
         if cat == "room" and len(hits) > 1:
             # 'teknikskab' is implied by 'teknikrum' words; keep the most specific first hit
             pass
