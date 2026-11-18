@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b2a3c">
+<title>Koncentrator Finder – demo</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+/* High contrast, large targets, gloves, outdoors. Same visual language as LinkIQ Field Assistant. */
+:root{
+  --ink:#0b1f2a;--paper:#f4f6f7;--card:#fff;--line:#c9d2d8;--navy:#0b2a3c;--blue:#1565c0;
+  --yellow:#f9c400;--green:#1b7a35;--gray:#55626b;--light:#e3e8ec;--red:#c62828;--warnbg:#fff4cc;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--paper);
+  display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
+header{background:var(--navy);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px}
+header h1{font-size:18px;margin:0;flex:1;font-weight:650}
+.pill{font-size:12px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--yellow);color:var(--ink);white-space:nowrap}
+header select{width:auto;padding:4px 6px;font-size:14px;border-radius:8px;border:0;min-height:34px}
+.searchbar{display:flex;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line)}
+.searchbar input{flex:1;min-width:0}
+.searchbar button{width:auto;min-width:54px;padding:0 12px}
+#filterCount{display:inline-block;min-width:20px;background:var(--yellow);color:var(--ink);border-radius:99px;font-size:13px;padding:0 6px;margin-left:4px}
+#filterCount:empty{display:none}
+#app{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.view[hidden]{display:none}
+#v-map{padding:0;overflow:hidden}
+#map{position:absolute;inset:0;background:#dfe6ea}
+#map.notiles{background-color:#e9eef1;background-image:linear-gradient(#d3dbe0 1px,transparent 1px),linear-gradient(90deg,#d3dbe0 1px,transparent 1px);background-size:40px 40px}
+.wrap{max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{font-size:16px;margin:0 0 8px}
+.card h3{font-size:15px;margin:0 0 6px}
+label{font-weight:650;font-size:15px;display:block;margin:8px 0 4px}
+input,select,textarea{font:inherit;padding:12px;border:2px solid var(--gray);border-radius:10px;background:#fff;color:var(--ink);width:100%}
+textarea{min-height:90px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+button,.btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:13px 14px;min-height:52px;cursor:pointer;width:100%;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;text-align:center}
+.primary{background:var(--blue);color:#fff}
+.go{background:var(--green);color:#fff}
+.warn{background:var(--yellow);color:var(--ink)}
+.danger{background:var(--red);color:#fff}
+.ghost{background:var(--light);color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.muted{color:var(--gray);font-size:14px}
+.small{font-size:14px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:15px;word-break:break-all}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--light);color:var(--ink);white-space:nowrap}
+.b-ok{background:#d7f0dd;color:#0d4d1f}.b-warn{background:var(--warnbg);color:#5c4400}.b-bad{background:#fbdcdc;color:#7a1414}.b-off{background:#e1e4e6;color:#3a4248}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.alert{border-radius:10px;padding:10px 12px;font-weight:600;font-size:15px;display:flex;gap:8px;align-items:flex-start}
+.alert.warn{background:var(--warnbg);border:2px solid var(--yellow)}
+.alert.info{background:#e3effc;border:2px solid #9cc2ef}
+.alert.bad{background:#fbdcdc;border:2px solid var(--red)}
+/* list */
+.item{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;min-height:72px;text-align:left;width:100%;font-weight:400}
+.item img{width:58px;height:58px;border-radius:8px;object-fit:cover;flex:none;background:var(--light)}
+.item .noimg{width:58px;height:58px;border-radius:8px;flex:none;background:var(--light);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--gray);text-align:center}
+.item .main{flex:1;min-width:0}
+.item .id{font-weight:800}
+.item .sub{font-size:14px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .dist{font-weight:800;font-size:15px;text-align:right;white-space:nowrap}
+/* map overlays */
+.mapfab{position:absolute;right:12px;z-index:500;width:58px;height:58px;min-height:0;border-radius:50%;padding:0;font-size:24px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#nearest{position:absolute;left:8px;right:8px;bottom:8px;z-index:500;max-width:640px;margin:0 auto}
+#tileNote{position:absolute;left:56px;top:10px;right:80px;z-index:500;font-size:13px;max-width:460px}
+.you{width:20px;height:20px;border-radius:50%;background:var(--blue);border:4px solid #fff;box-shadow:0 0 0 2px var(--blue)}
+/* detail */
+.hero{position:relative;border-radius:12px;overflow:hidden;background:var(--light);aspect-ratio:4/3;cursor:pointer;border:0;padding:0;min-height:0}
+.hero img{width:100%;height:100%;object-fit:cover;display:block}
+.hero .cap{position:absolute;left:0;right:0;bottom:0;background:rgba(11,31,42,.75);color:#fff;font-size:14px;padding:6px 10px;text-align:left;font-weight:500}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.thumbs button{padding:0;min-height:0;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--light);position:relative}
+.thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.thumbs .star{position:absolute;top:2px;left:4px;font-size:16px;text-shadow:0 0 3px #000;color:var(--yellow)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:15px}
+.kv dt{color:var(--gray)}.kv dd{margin:0;font-weight:600;word-break:break-word}
+.place{font-size:20px;font-weight:800;display:flex;gap:8px;align-items:center}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.timeline li{border-left:4px solid var(--line);padding:2px 0 2px 10px;font-size:15px}
+.timeline li.sms-out{border-color:var(--blue)}.timeline li.sms-in{border-color:var(--green)}.timeline li.ev-move{border-color:var(--yellow)}.timeline li.ev-bad{border-color:var(--red)}
+.timeline time{display:block;font-size:13px;color:var(--gray)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{width:auto;min-height:44px;padding:8px 14px;border-radius:99px;background:#fff;border:2px solid var(--gray);color:var(--ink);font-weight:700}
+.chip[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+/* tabs */
+nav.tabs{display:flex;background:#fff;border-top:1px solid var(--line)}
+nav.tabs button{flex:1;border-radius:0;background:#fff;color:var(--gray);font-size:13px;flex-direction:column;gap:2px;min-height:60px;padding:6px 2px}
+nav.tabs button span{font-size:22px;line-height:1}
+nav.tabs button[aria-current="page"]{color:var(--navy);box-shadow:inset 0 4px 0 var(--yellow)}
+/* sheet dialog */
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
+#sheet[hidden]{display:none}
+#sheet .panel{background:var(--paper);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px}
+#sheet .panel h2{margin:0;font-size:19px}
+#viewer{position:fixed;inset:0;background:#000;z-index:2500;display:flex;flex-direction:column}
+#viewer[hidden]{display:none}
+#viewer img{flex:1;min-height:0;object-fit:contain;width:100%}
+#viewer .bar{display:flex;gap:8px;padding:10px;color:#fff;align-items:center}
+#viewer .bar .txt{flex:1;font-size:14px}
+#viewer .bar button{width:auto}
+#toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 16px;border-radius:10px;z-index:3000;max-width:90vw;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+.skel{background:linear-gradient(90deg,#e3e8ec,#f1f4f6,#e3e8ec);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:12px;height:72px}
+@keyframes sk{to{background-position:-200% 0}}
+.empty{text-align:center;padding:24px 12px;color:var(--gray)}
+.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:4px}
+.leaflet-container{font:inherit}
+@media (min-width:960px){
+  #app{display:grid;grid-template-columns:1fr 440px}
+  .view{position:relative;inset:auto}
+  #v-map{grid-column:1;grid-row:1;display:block!important}
+  .view:not(#v-map){grid-column:2;grid-row:1;border-left:1px solid var(--line)}
+  nav.tabs .t-map{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="appTitle">Koncentrator Finder</h1>
+  <span class="pill" data-i18n="demoPill">DEMO · fiktive data</span>
+  <select id="lang" aria-label="Sprog / Limba"><option value="da">DA</option><option value="ro">RO</option></select>
+</header>
+<div class="searchbar">
+  <input id="q" type="search" autocomplete="off" data-i18n-ph="searchPh" placeholder="Søg: ID, adresse, by, postnr., placering">
+  <button id="btnFilter" class="ghost" aria-label="Filter">⚙︎<span id="filterCount"></span></button>
+</div>
+<div id="app">
+  <section id="v-map" class="view">
+    <div id="map" role="application" aria-label="Kort"></div>
+    <div id="tileNote" class="alert info" hidden></div>
+    <button id="btnLocate" class="mapfab primary" style="top:12px" aria-label="Min position">📍</button>
+    <button id="btnSimPos" class="mapfab ghost" style="top:80px" aria-label="Simulér position" hidden>🎯</button>
+    <div id="nearest"></div>
+  </section>
+  <section id="v-list" class="view" hidden><div class="wrap" id="listWrap"></div></section>
+  <section id="v-detail" class="view" hidden><div class="wrap" id="detailWrap"></div></section>
+  <section id="v-jobs" class="view" hidden><div class="wrap" id="jobsWrap"></div></section>
+  <section id="v-job" class="view" hidden><div class="wrap" id="jobWrap"></div></section>
+  <section id="v-more" class="view" hidden><div class="wrap" id="moreWrap"></div></section>
+</div>
+<nav class="tabs">
+  <button class="t-map" data-tab="map" aria-current="page"><span>🗺️</span><b data-i18n="tabMap">Kort</b></button>
+  <button data-tab="list"><span>☰</span><b data-i18n="tabList">Liste</b></button>
+  <button data-tab="jobs"><span>🛠️</span><b data-i18n="tabJobs">Sager</b></button>
+  <button data-tab="more"><span>⋯</span><b data-i18n="tabMore">Mere</b></button>
+</nav>
+<div id="sheet" hidden><div class="panel" id="sheetPanel"></div></div>
+<div id="viewer" hidden><img id="viewerImg" alt=""><div class="bar"><div class="txt" id="viewerTxt"></div><button class="ghost" id="viewerPrev">‹</button><button class="ghost" id="viewerNext">›</button><button class="warn" id="viewerClose">✕</button></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input id="fileIn" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   1. i18n (Danish for the field, Romanian for the project team)
+   ===================================================================== */
+const I18N = {
+  da: {
+    appTitle:'Koncentrator Finder', demoPill:'DEMO · fiktive data', searchPh:'Søg: ID, adresse, by, postnr., placering',
+    tabMap:'Kort', tabList:'Liste', tabJobs:'Sager', tabMore:'Mere', filter:'Filter', technology:'Teknologi', status:'Status',
+    other:'Andet', withPhoto:'Med foto', noPhoto:'Uden foto', unverified:'Ikke verificeret', stale:'Ikke kontrolleret i 2+ år',
+    incomplete:'Ufuldstændige data', clear:'Nulstil', apply:'Vis', close:'Luk', cancel:'Annullér', save:'Gem', back:'‹ Tilbage',
+    found:'{n} koncentratorer', noResults:'Ingen koncentratorer matcher', noResultsHint:'Prøv et andet ID eller fjern filtre.',
+    nearest:'Nærmeste', gpsOff:'GPS ikke aktiv. Tryk 📍 for din position.', gpsDenied:'GPS ikke tilgængelig her. Tryk 🎯 og derefter på kortet for at simulere din position.',
+    gpsWait:'Finder din position…', simTap:'Tryk på kortet, hvor du står', youAreHere:'Du er her (±{a} m)', simulated:'simuleret',
+    tilesBlocked:'Kortbaggrund kan ikke hentes i denne forhåndsvisning. På GitHub Pages / Azure vises OpenStreetMap.',
+    addrWarn:'Adressen er kun en reference. Koncentratoren sidder: {p}', placeTitle:'Montagested', access:'Adgang',
+    navigate:'Navigér hertil', iAmHere:'Jeg står ved koncentratoren', coords:'Koordinater', coordsVerified:'GPS verificeret på stedet',
+    coordsImported:'Fra Google My Maps (ikke verificeret)', refAddr:'Referenceadresse', tech:'Teknik', model:'Model', manufacturer:'Producent',
+    serial:'Serienr.', sim:'SIM-nr.', installed:'Installeret', lastVerified:'Sidst kontrolleret', updatedBy:'Opdateret af', toFill:'skal udfyldes',
+    never:'aldrig', photos:'Fotos', addPhoto:'Tag / tilføj foto', notes:'Feltnoter', addNote:'Tilføj note', noNotes:'Ingen noter endnu.',
+    noPhotos:'Ingen fotos. Tag et foto af koncentratoren og vejen derhen – det sparer den næste montør tid.',
+    jobs:'Fejlsøgning (SMS)', startJob:'Start fejlsøgning', history:'Historik', moreActions:'Flere handlinger', move:'Flyt koncentrator',
+    changeStatus:'Ændr status / nedlæg', report:'Rapportér forkert info', distance:'{d} {dir}', away:'væk',
+    staleBadge:'Ældre end 2 år', verifiedBadge:'Verificeret', unverifiedBadge:'Ikke verificeret', needsCheck:'Kræver kontrol',
+    st_Active:'Aktiv', st_TemporarilyUnavailable:'Midlertidigt utilgængelig', st_Relocated:'Flyttet', st_Decommissioned:'Nedlagt',
+    st_Removed:'Fjernet', st_RequiresVerification:'Kræver verifikation', st_Planned:'Planlagt',
+    lt_teknikrum:'Teknikrum', lt_kaelder:'Kælder', lt_faellesrum:'Fællesrum', lt_maalerrum:'Målerrum', lt_skur:'Skur',
+    lt_affald:'Affaldsrum / -skur', lt_ydervaeg:'Udvendig væg', lt_loft:'Loft', lt_teknikskab:'Teknikskab', lt_tilbygning:'Tilbygning',
+    confirmHereTitle:'Bekræft placering', confirmHereText:'Din nuværende position gemmes som koncentratorens verificerede position. Gør det kun, når du står ved enheden.',
+    accuracyBad:'GPS-nøjagtighed er {a} m. Gå udenfor eller vent et øjeblik for bedre nøjagtighed.', confirm:'Bekræft',
+    positionSaved:'Position gemt og markeret som verificeret', noteSaved:'Note gemt', photoSaved:'Foto gemt',
+    noteText:'Note', notePh:'Fx: nøglen sidder nu i nøgleboks 2, kode hos vicevært', photoCaption:'Billedtekst', photoCaptionPh:'Fx: skur bag affaldscontainerne, enhed øverst til venstre',
+    setPrimary:'Gør til hovedfoto', primary:'Hovedfoto', photoTooBig:'Billedet er for stort (maks. 15 MB).', photoType:'Kun JPEG, PNG eller WebP.',
+    photoProc:'Behandler foto…', storageFull:'Lageret i browseren er fuldt – data findes kun indtil siden lukkes.',
+    reportTitle:'Rapportér forkert info', reportWhat:'Hvad er forkert?', rf_position:'Position på kortet', rf_address:'Adresse',
+    rf_place:'Beskrivelse af montagested', rf_access:'Adgangsinstruktioner', rf_photo:'Foto', rf_missing:'Enheden findes ikke på stedet', rf_other:'Andet',
+    describe:'Beskriv', reportSaved:'Tak – sendt til kontoret til validering',
+    moveTitle:'Flyt koncentrator', moveReason:'Årsag til flytning', newPos:'Ny position', useGps:'Brug min GPS-position',
+    pickMap:'Vælg på kortet', pickTap:'Tryk på kortet ved den nye position', newAddr:'Ny referenceadresse', newPostal:'Postnr.', newCity:'By',
+    placeType:'Type af montagested', placeDesc:'Beskrivelse af montagested', accessInstr:'Adgangsinstruktioner',
+    moveDone:'Flyttet. Den gamle installation og dens fotos er bevaret i historikken.', posMissing:'Vælg en ny position først.',
+    required:'Udfyld de påkrævede felter.', statusTitle:'Ændr status', newStatus:'Ny status', reason:'Årsag',
+    typeId:'Skriv koncentratorens ID for at bekræfte', statusSaved:'Status ændret', noRight:'Din rolle har ikke adgang til denne handling.',
+    jobTitle:'Fejlsøgning', openJobs:'Åbne sager', closedJobs:'Afsluttede sager', noJobs:'Ingen sager endnu',
+    noJobsHint:'Åbn en koncentrator og vælg «Start fejlsøgning».', jobOpened:'Åbnet', jobClosed:'Afsluttet', tech_by:'Montør',
+    sendSms:'Send SMS', cmdNotSet:'Kommandotekst ikke angivet. Skriv den selv, eller få DataManager til at udfylde kataloget (Mere → SMS-kommandoer).',
+    cmdText:'Tekst der sendes', smsTo:'Til', openSmsApp:'Åbn SMS-app', copy:'Kopiér', copied:'Kopieret', logSent:'Markér som sendt',
+    smsHint:'Browseren kan ikke sende SMS selv. Knappen åbner telefonens SMS-app med teksten udfyldt. Markér derefter som sendt.',
+    logReply:'Registrér svar', replyPh:'Indsæt eller skriv svaret fra koncentratoren', addJobNote:'Note', closeJob:'Afslut sag',
+    outcome:'Resultat', oc_resolved:'Løst', oc_partial:'Delvist løst – opfølgning', oc_replace:'Kræver udskiftning', oc_unresolved:'Ikke løst',
+    summary:'Opsummering', serviceReport:'Servicerapport', copyReport:'Kopiér rapport', smsSent:'SMS sendt', smsReply:'Svar modtaget',
+    note:'Note', notVerifiedCmd:'ikke verificeret', commandsTitle:'SMS-kommandoer (katalog)',
+    commandsHint:'Kommandoerne skal udfyldes fra Kamstrups officielle dokumentation for den konkrete koncentratormodel. Demoen opfinder ingen kommandoer.',
+    cmdName:'Navn', verifiedSrc:'Verificeret mod dokumentation', addCmd:'Tilføj kommando', role:'Rolle (demo)', user:'Bruger (demo)',
+    language:'Sprog', dataQuality:'Datakvalitet', resetDemo:'Nulstil demodata', resetDone:'Demodata nulstillet', about:'Om demoen',
+    aboutText:'Alle koncentratorer, adresser, koordinater, SIM-numre og fotos er fiktive. Ingen data sendes nogen steder – alt gemmes kun i denne browser. Kortdata © OpenStreetMap-bidragydere.',
+    exportJobs:'Kopiér sager som CSV', open:'Åbn', reported:'Rapporteret', ev_import:'Importeret fra Google My Maps', ev_note:'Note tilføjet',
+    ev_photo:'Foto tilføjet', ev_verify:'Position verificeret på stedet', ev_report:'Fejl rapporteret', ev_move:'Flyttet', ev_status:'Status ændret',
+    ev_job_open:'Fejlsøgning startet', ev_job_close:'Fejlsøgning afsluttet', ev_primary:'Hovedfoto ændret', installation:'Installation',
+    current:'aktuel', ended:'afsluttet', oldPhotosKept:'fotos fra denne installation er bevaret', distanceUnknown:'—',
+    pendingSync:'Gemt lokalt', firstUse:'Tip: tryk 📍 for at se dine nærmeste koncentratorer.'
+  },
+  ro: {
+    appTitle:'Koncentrator Finder', demoPill:'DEMO · date fictive', searchPh:'Caută: ID, adresă, oraș, cod poștal, poziție',
+    tabMap:'Hartă', tabList:'Listă', tabJobs:'Intervenții', tabMore:'Mai mult', filter:'Filtru', technology:'Tehnologie', status:'Stare',
+    other:'Altele', withPhoto:'Cu foto', noPhoto:'Fără foto', unverified:'Neverificat', stale:'Neverificat de 2+ ani',
+    incomplete:'Date incomplete', clear:'Resetează', apply:'Arată', close:'Închide', cancel:'Anulează', save:'Salvează', back:'‹ Înapoi',
+    found:'{n} concentratoare', noResults:'Niciun concentrator nu corespunde', noResultsHint:'Încearcă alt ID sau scoate filtrele.',
+    nearest:'Cele mai apropiate', gpsOff:'GPS inactiv. Apasă 📍 pentru poziția ta.', gpsDenied:'GPS indisponibil aici. Apasă 🎯 și apoi pe hartă pentru a simula poziția.',
+    gpsWait:'Se caută poziția…', simTap:'Apasă pe hartă unde te afli', youAreHere:'Ești aici (±{a} m)', simulated:'simulat',
+    tilesBlocked:'Fundalul hărții nu se poate încărca în această previzualizare. Pe GitHub Pages / Azure apare OpenStreetMap.',
+    addrWarn:'Adresa este doar o referință. Concentratorul se află: {p}', placeTitle:'Locul montajului', access:'Acces',
+    navigate:'Navighează aici', iAmHere:'Sunt lângă concentrator', coords:'Coordonate', coordsVerified:'GPS verificat la fața locului',
+    coordsImported:'Din Google My Maps (neverificat)', refAddr:'Adresă de referință', tech:'Tehnic', model:'Model', manufacturer:'Producător',
+    serial:'Nr. serie', sim:'Nr. SIM', installed:'Instalat', lastVerified:'Ultima verificare', updatedBy:'Actualizat de', toFill:'de completat',
+    never:'niciodată', photos:'Fotografii', addPhoto:'Fă / adaugă foto', notes:'Note din teren', addNote:'Adaugă notă', noNotes:'Nicio notă încă.',
+    noPhotos:'Nicio fotografie. Fotografiază concentratorul și drumul până la el – economisește timp următorului montator.',
+    jobs:'Depanare (SMS)', startJob:'Începe depanarea', history:'Istoric', moreActions:'Alte acțiuni', move:'Mută concentratorul',
+    changeStatus:'Schimbă starea / dezafectează', report:'Raportează informație greșită', distance:'{d} {dir}', away:'',
+    staleBadge:'Mai vechi de 2 ani', verifiedBadge:'Verificat', unverifiedBadge:'Neverificat', needsCheck:'Necesită verificare',
+    st_Active:'Activ', st_TemporarilyUnavailable:'Temporar indisponibil', st_Relocated:'Mutat', st_Decommissioned:'Dezafectat',
+    st_Removed:'Îndepărtat', st_RequiresVerification:'Necesită verificare', st_Planned:'Planificat',
+    lt_teknikrum:'Cameră tehnică', lt_kaelder:'Subsol', lt_faellesrum:'Cameră comună', lt_maalerrum:'Cameră contoare', lt_skur:'Skur (magazie)',
+    lt_affald:'Cameră / skur deșeuri', lt_ydervaeg:'Perete exterior', lt_loft:'Pod', lt_teknikskab:'Dulap tehnic', lt_tilbygning:'Anexă',
+    confirmHereTitle:'Confirmă poziția', confirmHereText:'Poziția ta curentă va fi salvată ca poziție verificată a concentratorului. Fă asta doar când stai lângă echipament.',
+    accuracyBad:'Precizia GPS este {a} m. Ieși afară sau așteaptă puțin pentru o precizie mai bună.', confirm:'Confirmă',
+    positionSaved:'Poziție salvată și marcată ca verificată', noteSaved:'Notă salvată', photoSaved:'Foto salvată',
+    noteText:'Notă', notePh:'Ex.: cheia este acum în cutia de chei 2, codul la administrator', photoCaption:'Descriere foto', photoCaptionPh:'Ex.: skur în spatele containerelor, echipamentul sus stânga',
+    setPrimary:'Setează ca foto principală', primary:'Foto principală', photoTooBig:'Imaginea este prea mare (max. 15 MB).', photoType:'Doar JPEG, PNG sau WebP.',
+    photoProc:'Se procesează foto…', storageFull:'Spațiul din browser este plin – datele există doar până se închide pagina.',
+    reportTitle:'Raportează informație greșită', reportWhat:'Ce este greșit?', rf_position:'Poziția pe hartă', rf_address:'Adresa',
+    rf_place:'Descrierea locului de montaj', rf_access:'Instrucțiunile de acces', rf_photo:'Fotografia', rf_missing:'Echipamentul nu mai există acolo', rf_other:'Altceva',
+    describe:'Descrie', reportSaved:'Mulțumim – trimis biroului spre validare',
+    moveTitle:'Mută concentratorul', moveReason:'Motivul mutării', newPos:'Poziția nouă', useGps:'Folosește poziția mea GPS',
+    pickMap:'Alege pe hartă', pickTap:'Apasă pe hartă la noua poziție', newAddr:'Adresă de referință nouă', newPostal:'Cod poștal', newCity:'Oraș',
+    placeType:'Tipul locului de montaj', placeDesc:'Descrierea locului de montaj', accessInstr:'Instrucțiuni de acces',
+    moveDone:'Mutat. Instalarea veche și fotografiile ei sunt păstrate în istoric.', posMissing:'Alege mai întâi o poziție nouă.',
+    required:'Completează câmpurile obligatorii.', statusTitle:'Schimbă starea', newStatus:'Stare nouă', reason:'Motiv',
+    typeId:'Scrie ID-ul concentratorului pentru confirmare', statusSaved:'Stare schimbată', noRight:'Rolul tău nu are acces la această acțiune.',
+    jobTitle:'Depanare', openJobs:'Intervenții deschise', closedJobs:'Intervenții închise', noJobs:'Nicio intervenție încă',
+    noJobsHint:'Deschide un concentrator și alege «Începe depanarea».', jobOpened:'Deschisă', jobClosed:'Închisă', tech_by:'Montator',
+    sendSms:'Trimite SMS', cmdNotSet:'Textul comenzii nu este definit. Scrie-l tu sau cere DataManager să completeze catalogul (Mai mult → Comenzi SMS).',
+    cmdText:'Text de trimis', smsTo:'Către', openSmsApp:'Deschide aplicația SMS', copy:'Copiază', copied:'Copiat', logSent:'Marchează ca trimis',
+    smsHint:'Browserul nu poate trimite singur SMS. Butonul deschide aplicația SMS a telefonului cu textul completat. Apoi marchează ca trimis.',
+    logReply:'Înregistrează răspunsul', replyPh:'Lipește sau scrie răspunsul primit de la concentrator', addJobNote:'Notă', closeJob:'Închide intervenția',
+    outcome:'Rezultat', oc_resolved:'Rezolvat', oc_partial:'Parțial rezolvat – revenire', oc_replace:'Necesită înlocuire', oc_unresolved:'Nerezolvat',
+    summary:'Rezumat', serviceReport:'Raport de intervenție', copyReport:'Copiază raportul', smsSent:'SMS trimis', smsReply:'Răspuns primit',
+    note:'Notă', notVerifiedCmd:'neverificată', commandsTitle:'Comenzi SMS (catalog)',
+    commandsHint:'Comenzile trebuie completate din documentația oficială Kamstrup pentru modelul concret de concentrator. Demo-ul nu inventează comenzi.',
+    cmdName:'Nume', verifiedSrc:'Verificată în documentație', addCmd:'Adaugă comandă', role:'Rol (demo)', user:'Utilizator (demo)',
+    language:'Limba', dataQuality:'Calitatea datelor', resetDemo:'Resetează datele demo', resetDone:'Date demo resetate', about:'Despre demo',
+    aboutText:'Toate concentratoarele, adresele, coordonatele, numerele SIM și fotografiile sunt fictive. Nicio dată nu este trimisă nicăieri – totul se salvează doar în acest browser. Date hartă © contribuitorii OpenStreetMap.',
+    exportJobs:'Copiază intervențiile ca CSV', open:'Deschide', reported:'Raportat', ev_import:'Importat din Google My Maps', ev_note:'Notă adăugată',
+    ev_photo:'Foto adăugată', ev_verify:'Poziție verificată la fața locului', ev_report:'Eroare raportată', ev_move:'Mutat', ev_status:'Stare schimbată',
+    ev_job_open:'Depanare începută', ev_job_close:'Depanare închisă', ev_primary:'Foto principală schimbată', installation:'Instalare',
+    current:'curentă', ended:'încheiată', oldPhotosKept:'fotografiile acestei instalări sunt păstrate', distanceUnknown:'—',
+    pendingSync:'Salvat local', firstUse:'Sfat: apasă 📍 pentru a vedea cele mai apropiate concentratoare.'
+  }
+};
+let LANG = 'da';
+function t(k, vars){ let s = (I18N[LANG] && I18N[LANG][k]) || I18N.da[k] || k; if (vars) for (const [a,b] of Object.entries(vars)) s = s.replace('{'+a+'}', b); return s; }
+function applyI18n(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+}
+
+/* =====================================================================
+   2. Helpers
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = p => p + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const nowIso = () => new Date().toISOString();
+function fmtDate(iso, withTime){ if(!iso) return t('never'); const d=new Date(iso); const o={year:'numeric',month:'2-digit',day:'2-digit'}; if(withTime){o.hour='2-digit';o.minute='2-digit';} return d.toLocaleString(LANG==='da'?'da-DK':'ro-RO', o); }
+function ageYears(iso){ return iso ? (Date.now()-new Date(iso).getTime())/(365.25*864e5) : Infinity; }
+function haversine(a, b){ const R=6371000, r=Math.PI/180; const dLat=(b.lat-a.lat)*r, dLng=(b.lng-a.lng)*r;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+function bearing(a, b){ const r=Math.PI/180; const y=Math.sin((b.lng-a.lng)*r)*Math.cos(b.lat*r);
+  const x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lng-a.lng)*r); return (Math.atan2(y,x)/r+360)%360; }
+function dirName(deg){ const da=['N','NØ','Ø','SØ','S','SV','V','NV'], ro=['N','NE','E','SE','S','SV','V','NV']; return (LANG==='da'?da:ro)[Math.round(deg/45)%8]; }
+function fmtDist(m){ return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(m<10000?1:0).replace('.', LANG==='da'||LANG==='ro'?',':'.')+' km'; }
+function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2600); }
+async function copyText(txt){ try{ await navigator.clipboard.writeText(txt); toast(t('copied')); }
+  catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); let ok=false; try{ok=document.execCommand('copy');}catch{} ta.remove(); toast(ok?t('copied'):txt.slice(0,80)); } }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t2=Math.imul(a^a>>>15,1|a); t2=t2+Math.imul(t2^t2>>>7,61|t2)^t2; return ((t2^t2>>>14)>>>0)/4294967296; }; }
+
+/* =====================================================================
+   3. Domain constants
+   ===================================================================== */
+const TECH = [
+  {technologyId:'radiomesh', name:'Radio Mesh', color:'#7b1fa2', documentationUrl:''},
+  {technologyId:'linkiq', name:'LinkIQ', color:'#1565c0', documentationUrl:''},
+  {technologyId:'omslpwan', name:'OMS LPWAN', color:'#00897b', documentationUrl:''},
+  {technologyId:'wmbus', name:'Wireless M-Bus', color:'#e65100', documentationUrl:''},
+  {technologyId:'other', name:'Andet / Altele', color:'#546e7a', documentationUrl:''}
+];
+const STATUSES = ['Active','TemporarilyUnavailable','RequiresVerification','Relocated','Planned','Decommissioned','Removed'];
+const STATUS_CLASS = {Active:'b-ok',TemporarilyUnavailable:'b-warn',RequiresVerification:'b-warn',Relocated:'b-off',Planned:'b-off',Decommissioned:'b-bad',Removed:'b-bad'};
+const LOC_TYPES = ['teknikrum','kaelder','faellesrum','maalerrum','skur','affald','ydervaeg','loft','teknikskab','tilbygning'];
+const LOC_ICON = {teknikrum:'🔌',kaelder:'⬇️',faellesrum:'🚪',maalerrum:'📟',skur:'🛖',affald:'🗑️',ydervaeg:'🧱',loft:'⬆️',teknikskab:'🗄️',tilbygning:'🏚️'};
+const ROLES = {
+  Viewer:        {note:false, photo:false, verify:false, report:true,  job:false, move:false, status:false, catalog:false},
+  Installer:     {note:true,  photo:true,  verify:true,  report:true,  job:true,  move:true,  status:false, catalog:false},
+  OfficeEditor:  {note:true,  photo:true,  verify:false, report:true,  job:false, move:true,  status:true,  catalog:false},
+  DataManager:   {note:true,  photo:true,  verify:true,  report:true,  job:true,  move:true,  status:true,  catalog:true},
+  Administrator: {note:true,  photo:true,  verify:true,  report:true,  job:true,  move:true,  status:true,  catalog:true}
+};
+const can = action => !!(ROLES[STATE.session.role] || {})[action];
+
+/* =====================================================================
+   4. Fictitious demo data (no real addresses, coordinates, SIMs or photos)
+   ===================================================================== */
+function seedData(){
+  const rnd = mulberry32(20261117);
+  const pick = arr => arr[Math.floor(rnd()*arr.length)];
+  const towns = [
+    {city:'Aarhus C',pc:'8000',lat:56.156,lng:10.205},{city:'Aarhus N',pc:'8200',lat:56.180,lng:10.190},
+    {city:'Viby J',pc:'8260',lat:56.127,lng:10.160},{city:'Risskov',pc:'8240',lat:56.190,lng:10.230},
+    {city:'Brabrand',pc:'8220',lat:56.155,lng:10.110},{city:'Hasselager',pc:'8361',lat:56.103,lng:10.100},
+    {city:'Tilst',pc:'8381',lat:56.188,lng:10.110},{city:'Lystrup',pc:'8520',lat:56.236,lng:10.232},
+    {city:'Højbjerg',pc:'8270',lat:56.118,lng:10.200},{city:'Egå',pc:'8250',lat:56.212,lng:10.262}
+  ];
+  const streets = ['Demovej','Prøvegade','Testparken','Eksempelvænget','Fiktivvej','Modelallé','Skitsevej','Øvelsesgade'];
+  const descr = {
+    teknikrum:['Teknikrum i kælderen under opgang B, enhed på væggen til højre for fjernvarmeunit','Teknikrum ved varmecentral, sort kasse over kabelbakken'],
+    kaelder:['Kælder, gang mod cykelkælder, 3. dør til venstre, enhed højt på væggen','Kælderrum under trappeopgang 4, bag reolen'],
+    faellesrum:['Fællesrum ved vaskeriet, inde i skabet til højre','Fælleshus, depotrum bag køkkenet'],
+    maalerrum:['Målerrum i stueetagen, ved siden af el-tavlen','Målerrum ved indgang C, enheden sidder over vandmåleren'],
+    skur:['Skur bag cykelstativet, enhed under taget i venstre hjørne','Redskabsskur ved legepladsen, bagvæg'],
+    affald:['Affaldsskur ved parkeringen, enhed øverst på bagvæggen bag containerne','Affaldsrum i gården, til venstre for døren'],
+    ydervaeg:['Udvendig gavl mod øst, grå boks 2,5 m oppe – stige nødvendig','Ydervæg ved carport, under tagudhænget'],
+    loft:['Loftsrum over opgang A, adgang via lem i trappeopgangen','Tagetage, teknikrum ved elevatormaskinen'],
+    teknikskab:['Teknikskab på fortovet foran nr. 4, grå skab med fjernvarmelogo','Udendørs teknikskab ved indkørslen'],
+    tilbygning:['Tilbygning bag hovedbygningen, dør mod gården','Lille tilbygning ved garagerne']
+  };
+  const access = ['Nøgle i nøgleboks ved hoveddøren – kode hos driftskontoret (fiktiv)','Kontakt viceværten i dagtimerne (fiktivt nr.)',
+    'Systemnøgle nr. D-12 (fiktiv)','Fri adgang fra gården','Kræver stige, ca. 3 m','Port åbnes med brik – lånes på kontoret'];
+  const techWeights = ['radiomesh','radiomesh','radiomesh','linkiq','linkiq','omslpwan','wmbus','wmbus'];
+  const users = ['montør.demo1','montør.demo2','kontor.demo'];
+  const db = {concentrators:[],locations:[],installations:[],photos:[],events:[],notes:[],jobs:[]};
+  const N = 64;
+  for (let i=1;i<=N;i++){
+    const id = 'DEMO-K' + String(i).padStart(4,'0');
+    const town = pick(towns), lt = pick(LOC_TYPES);
+    const lat = +(town.lat + (rnd()-.5)*0.03).toFixed(6), lng = +(town.lng + (rnd()-.5)*0.05).toFixed(6);
+    const installedAt = new Date(2011 + Math.floor(rnd()*14), Math.floor(rnd()*12), 1+Math.floor(rnd()*27)).toISOString();
+    const verifiedRoll = rnd();
+    const lastVerifiedAt = verifiedRoll < .12 ? null : new Date(Math.max(new Date(installedAt).getTime(), Date.now() - rnd()*9*365*864e5)).toISOString();
+    let status = 'Active'; const sr = rnd();
+    if (sr < .06) status='TemporarilyUnavailable'; else if (sr < .14) status='RequiresVerification';
+    const c = {concentratorId:id, externalId:'MM-'+(1000+i), serialNumber: rnd()<.6 ? String(70000000+Math.floor(rnd()*99999)) : '',
+      manufacturer:'Kamstrup', model:'', technologyId:pick(techWeights), operationalStatus:status,
+      simNumber:'+4500' + String(100000+i).slice(-6), firmware:'', createdAt:installedAt, updatedAt:lastVerifiedAt||installedAt, updatedBy:pick(users)};
+    const loc = {locationId:'L-'+i, referenceAddress:pick(streets)+' '+(1+Math.floor(rnd()*80)), postalCode:town.pc, city:town.city,
+      latitude:lat, longitude:lng, coordSource:'mymaps', verifiedLatitude:null, verifiedLongitude:null,
+      physicalLocationDescription: rnd()<.08 ? '' : pick(descr[lt]), accessInstructions: rnd()<.15 ? '' : pick(access),
+      locationType:lt, verificationStatus: lastVerifiedAt ? 'verified' : 'unverified', lastVerifiedAt};
+    if (lastVerifiedAt && rnd()<.5){ loc.verifiedLatitude=+(lat+(rnd()-.5)*0.0004).toFixed(6); loc.verifiedLongitude=+(lng+(rnd()-.5)*0.0006).toFixed(6); loc.coordSource='gps'; }
+    const inst = {installationId:'I-'+i, concentratorId:id, locationId:loc.locationId, validFrom:installedAt, validTo:null, isCurrent:true,
+      installationStatus:'Installed', relocationReason:'', installedBy:pick(users), notes:''};
+    db.concentrators.push(c); db.locations.push(loc); db.installations.push(inst);
+    const nPhotos = rnd()<.18 ? 0 : 1+Math.floor(rnd()*3);
+    for (let p=0;p<nPhotos;p++) db.photos.push({photoId:'P-'+i+'-'+p, installationId:inst.installationId, locationId:loc.locationId,
+      fileName:'demo_'+i+'_'+p+'.svg', demoKind: p===0 ? lt : (p===1?'approach':'label'), caption: p===0 ? loc.physicalLocationDescription : (p===1?'Vejen hen til enheden (fiktivt)':'Typeskilt (fiktivt)'),
+      isPrimary:p===0, takenAt:lastVerifiedAt, uploadedAt:installedAt, uploadedBy:'Google My Maps import', source:'mymaps', sha256:''});
+    db.events.push({eventId:'E-imp-'+i, entityType:'Concentrator', entityId:id, action:'import', oldValue:null, newValue:{externalId:c.externalId}, changedBy:'import', changedAt:'2026-11-17T08:00:00Z', reason:''});
+  }
+  // A relocated example: K0007 keeps its old installation + photos
+  const c7 = db.concentrators[6], l7 = db.locations[6], i7 = db.installations[6];
+  const moveDate = '2024-05-14T09:30:00Z';
+  i7.validTo = moveDate; i7.isCurrent = false; i7.installationStatus = 'Relocated'; i7.relocationReason = 'Teknikrum ombygget (fiktivt eksempel)';
+  const l7b = {...l7, locationId:'L-7b', latitude:+(l7.latitude+0.0012).toFixed(6), longitude:+(l7.longitude-0.0015).toFixed(6), verifiedLatitude:null, verifiedLongitude:null,
+    coordSource:'gps', locationType:'skur', physicalLocationDescription:'Nyt skur ved p-pladsen, enheden på bagvæggen', verificationStatus:'verified', lastVerifiedAt:moveDate};
+  l7b.verifiedLatitude=l7b.latitude; l7b.verifiedLongitude=l7b.longitude;
+  db.locations.push(l7b);
+  db.installations.push({installationId:'I-7b', concentratorId:c7.concentratorId, locationId:'L-7b', validFrom:moveDate, validTo:null, isCurrent:true,
+    installationStatus:'Installed', relocationReason:'', installedBy:'montør.demo2', notes:''});
+  db.photos.push({photoId:'P-7b-0', installationId:'I-7b', locationId:'L-7b', fileName:'demo_7b.svg', demoKind:'skur', caption:'Nyt skur ved p-pladsen (fiktivt)', isPrimary:true,
+    takenAt:moveDate, uploadedAt:moveDate, uploadedBy:'montør.demo2', source:'app', sha256:''});
+  db.events.push({eventId:'E-mv-7', entityType:'Installation', entityId:'I-7b', action:'move', oldValue:{locationId:l7.locationId}, newValue:{locationId:'L-7b'}, changedBy:'montør.demo2', changedAt:moveDate, reason:i7.relocationReason});
+  // A decommissioned example
+  db.concentrators[11].operationalStatus = 'Decommissioned';
+  db.events.push({eventId:'E-dc-12', entityType:'Concentrator', entityId:db.concentrators[11].concentratorId, action:'status', oldValue:{status:'Active'}, newValue:{status:'Decommissioned'}, changedBy:'kontor.demo', changedAt:'2025-02-03T10:00:00Z', reason:'Erstattet af ny enhed (fiktivt)'});
+  // A closed troubleshooting job, to show the report format
+  db.jobs.push({jobId:'J-0001', concentratorId:'DEMO-K0003', openedAt:'2026-10-02T08:12:00Z', openedBy:'montør.demo1', closedAt:'2026-10-02T09:05:00Z',
+    outcome:'resolved', summary:'Enheden svarede ikke. Efter genstart via SMS kom data igen (fiktivt eksempel).', gps:null,
+    log:[{at:'2026-10-02T08:15:00Z',type:'sms-out',cmdId:'status',text:'‹statuskommando›'},{at:'2026-10-02T08:18:00Z',type:'sms-in',text:'‹svar fra enheden – eksempel›'},
+         {at:'2026-10-02T08:20:00Z',type:'sms-out',cmdId:'restart',text:'‹genstartskommando›'},{at:'2026-10-02T08:31:00Z',type:'note',text:'Fysisk kontrolleret: LED blinker grønt.'}]});
+  return db;
+}
+const DEFAULT_COMMANDS = [
+  {id:'status', name:{da:'Statusforespørgsel',ro:'Interogare stare'}, text:'', verified:false},
+  {id:'signal', name:{da:'Signal / forbindelse',ro:'Semnal / conexiune'}, text:'', verified:false},
+  {id:'restart', name:{da:'Genstart',ro:'Repornire'}, text:'', verified:false},
+  {id:'version', name:{da:'Firmware-version',ro:'Versiune firmware'}, text:'', verified:false},
+  {id:'free', name:{da:'Fri tekst',ro:'Text liber'}, text:'', verified:false}
+];
+
+/* =====================================================================
+   5. Repository layer. The UI talks only to `repo`. Swap LocalAdapter for
+      a GraphAdapter (SharePoint) or ApiAdapter (Azure Functions + SQL)
+      without touching the UI code.
+   ===================================================================== */
+const STORAGE_KEY = 'koncentrator-finder-demo-v1';
+const LocalAdapter = {
+  memory:null, persistOk:true,
+  load(){ if (this.memory) return this.memory;
+    try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) this.memory = JSON.parse(raw); } catch { this.persistOk=false; }
+    if (!this.memory) this.memory = {db:seedData(), commands:structuredClone(DEFAULT_COMMANDS), session:{user:'montør.demo1', role:'Installer', lang:'da'}};
+    return this.memory; },
+  save(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.memory)); this.persistOk=true; }
+    catch { if (this.persistOk) toast(t('storageFull')); this.persistOk=false; } },
+  reset(){ try{ localStorage.removeItem(STORAGE_KEY); }catch{} this.memory=null; return this.load(); }
+};
+const repo = {
+  a: LocalAdapter,
+  async snapshot(){ return this.a.load(); },
+  audit(db, entityType, entityId, action, oldValue, newValue, reason){
+    db.events.push({eventId:uid('E'), entityType, entityId, action, oldValue, newValue, changedBy:STATE.session.user, changedAt:nowIso(), reason:reason||''}); },
+  async addNote(cid, text){ const s=this.a.load(); const inst=currentInst(cid);
+    s.db.notes.push({noteId:uid('N'), concentratorId:cid, installationId:inst.installationId, text, by:s.session.user, at:nowIso()});
+    this.audit(s.db,'Installation',inst.installationId,'note',null,{text},''); this.a.save(); },
+  async addPhoto(cid, photo){ const s=this.a.load(); const inst=currentInst(cid);
+    const hasPrimary = s.db.photos.some(p=>p.installationId===inst.installationId && p.isPrimary);
+    s.db.photos.push({photoId:uid('P'), installationId:inst.installationId, locationId:inst.locationId, isPrimary:!hasPrimary, uploadedAt:nowIso(), uploadedBy:s.session.user, source:'app', ...photo});
+    this.audit(s.db,'Installation',inst.installationId,'photo',null,{fileName:photo.fileName, sha256:photo.sha256},''); this.a.save(); },
+  async setPrimary(photoId){ const s=this.a.load(); const ph=s.db.photos.find(p=>p.photoId===photoId);
+    s.db.photos.filter(p=>p.installationId===ph.installationId).forEach(p=>p.isPrimary=(p.photoId===photoId));
+    this.audit(s.db,'Photo',photoId,'primary',null,null,''); this.a.save(); },
+  async verifyPosition(cid, pos){ const s=this.a.load(); const loc=currentLoc(cid); const old={lat:loc.verifiedLatitude, lng:loc.verifiedLongitude};
+    Object.assign(loc,{verifiedLatitude:+pos.lat.toFixed(6), verifiedLongitude:+pos.lng.toFixed(6), coordSource:'gps', verificationStatus:'verified', lastVerifiedAt:nowIso()});
+    const c=concentrator(cid); c.updatedAt=nowIso(); c.updatedBy=s.session.user;
+    this.audit(s.db,'Location',loc.locationId,'verify',old,{lat:loc.verifiedLatitude,lng:loc.verifiedLongitude,accuracy:pos.acc},''); this.a.save(); },
+  async report(cid, field, text){ const s=this.a.load(); const loc=currentLoc(cid); loc.verificationStatus='needs-check';
+    this.audit(s.db,'Location',loc.locationId,'report',null,{field,text},text); this.a.save(); },
+  async move(cid, data){ const s=this.a.load(); const old=currentInst(cid); const t0=nowIso();
+    const loc={locationId:uid('L'), referenceAddress:data.address, postalCode:data.postal, city:data.city, latitude:data.lat, longitude:data.lng,
+      coordSource:data.fromGps?'gps':'map', verifiedLatitude:data.fromGps?data.lat:null, verifiedLongitude:data.fromGps?data.lng:null,
+      physicalLocationDescription:data.desc, accessInstructions:data.access, locationType:data.type,
+      verificationStatus:data.fromGps?'verified':'unverified', lastVerifiedAt:data.fromGps?t0:null};
+    s.db.locations.push(loc);
+    Object.assign(old,{validTo:t0, isCurrent:false, installationStatus:'Relocated', relocationReason:data.reason});
+    const inst={installationId:uid('I'), concentratorId:cid, locationId:loc.locationId, validFrom:t0, validTo:null, isCurrent:true, installationStatus:'Installed', relocationReason:'', installedBy:s.session.user, notes:''};
+    s.db.installations.push(inst);
+    const c=concentrator(cid); c.updatedAt=t0; c.updatedBy=s.session.user;
+    this.audit(s.db,'Installation',inst.installationId,'move',{installationId:old.installationId, locationId:old.locationId},{installationId:inst.installationId, locationId:loc.locationId},data.reason); this.a.save(); },
+  async setStatus(cid, status, reason){ const s=this.a.load(); const c=concentrator(cid); const old=c.operationalStatus;
+    c.operationalStatus=status; c.updatedAt=nowIso(); c.updatedBy=s.session.user;
+    this.audit(s.db,'Concentrator',cid,'status',{status:old},{status},reason); this.a.save(); },
+  async openJob(cid){ const s=this.a.load(); const n=s.db.jobs.length+1;
+    const job={jobId:'J-'+String(n).padStart(4,'0'), concentratorId:cid, openedAt:nowIso(), openedBy:s.session.user, closedAt:null, outcome:null, summary:'', gps:null, log:[]};
+    s.db.jobs.push(job); this.audit(s.db,'Concentrator',cid,'job_open',null,{jobId:job.jobId},''); this.a.save(); return job.jobId; },
+  async logJob(jobId, entry){ const s=this.a.load(); const j=s.db.jobs.find(x=>x.jobId===jobId); j.log.push({at:nowIso(), ...entry}); this.a.save(); },
+  async closeJob(jobId, outcome, summary, gps){ const s=this.a.load(); const j=s.db.jobs.find(x=>x.jobId===jobId);
+    Object.assign(j,{closedAt:nowIso(), outcome, summary, gps}); this.audit(s.db,'Concentrator',j.concentratorId,'job_close',null,{jobId, outcome},summary); this.a.save(); },
+  async saveCommands(cmds){ const s=this.a.load(); s.commands=cmds; this.a.save(); },
+  async saveSession(patch){ const s=this.a.load(); Object.assign(s.session, patch); this.a.save(); }
+};
+
+/* =====================================================================
+   6. State + selectors
+   ===================================================================== */
+const STATE = {db:null, commands:null, session:null, me:null, sim:false, filters:{tech:new Set(), status:new Set(), flags:new Set()}, q:'',
+  tab:'map', detailId:null, jobId:null, pickMode:null};
+const concentrator = id => STATE.db.concentrators.find(c=>c.concentratorId===id);
+const currentInst = id => STATE.db.installations.find(i=>i.concentratorId===id && i.isCurrent) || STATE.db.installations.filter(i=>i.concentratorId===id).slice(-1)[0];
+const currentLoc = id => { const i=currentInst(id); return STATE.db.locations.find(l=>l.locationId===i.locationId); };
+const techOf = c => TECH.find(x=>x.technologyId===c.technologyId) || TECH[TECH.length-1];
+const posOf = loc => loc.verifiedLatitude!=null ? {lat:loc.verifiedLatitude,lng:loc.verifiedLongitude,verified:true} : {lat:loc.latitude,lng:loc.longitude,verified:false};
+const photosOf = instId => STATE.db.photos.filter(p=>p.installationId===instId).sort((a,b)=>(b.isPrimary-a.isPrimary));
+function isIncomplete(c, loc){ return !loc.physicalLocationDescription || !loc.accessInstructions || !c.model || !c.serialNumber; }
+function rows(){
+  return STATE.db.concentrators.map(c=>{ const inst=currentInst(c.concentratorId), loc=currentLoc(c.concentratorId), pos=posOf(loc);
+    const photos=photosOf(inst.installationId); const dist = STATE.me ? haversine(STATE.me, pos) : null;
+    return {c, inst, loc, pos, photos, dist}; });
+}
+function filtered(){
+  const q = STATE.q.trim().toLowerCase(); const f = STATE.filters;
+  let r = rows().filter(({c,loc,photos})=>{
+    if (f.tech.size && !f.tech.has(c.technologyId)) return false;
+    if (f.status.size && !f.status.has(c.operationalStatus)) return false;
+    if (f.flags.has('withPhoto') && !photos.length) return false;
+    if (f.flags.has('noPhoto') && photos.length) return false;
+    if (f.flags.has('unverified') && loc.verificationStatus==='verified') return false;
+    if (f.flags.has('stale') && ageYears(loc.lastVerifiedAt) < 2) return false;
+    if (f.flags.has('incomplete') && !isIncomplete(c,loc)) return false;
+    if (q){ const hay=[c.concentratorId,c.externalId,c.serialNumber,c.model,techOf(c).name,loc.referenceAddress,loc.postalCode,loc.city,
+        loc.physicalLocationDescription,loc.accessInstructions,t('lt_'+loc.locationType),
+        ...STATE.db.notes.filter(n=>n.concentratorId===c.concentratorId).map(n=>n.text)].join(' ').toLowerCase();
+      if (!q.split(/\s+/).every(w=>hay.includes(w))) return false; }
+    return true; });
+  r.sort((a,b)=> a.dist!=null && b.dist!=null ? a.dist-b.dist : a.c.concentratorId.localeCompare(b.c.concentratorId));
+  return r;
+}
+function statusBadge(s){ return `<span class="badge ${STATUS_CLASS[s]||''}">${esc(t('st_'+s))}</span>`; }
+function techBadge(c){ const x=techOf(c); return `<span class="badge"><span class="dot" style="background:${x.color}"></span>${esc(x.name)}</span>`; }
+function verifyBadge(loc){ if (loc.verificationStatus==='needs-check') return `<span class="badge b-bad">⚠ ${esc(t('needsCheck'))}</span>`;
+  if (!loc.lastVerifiedAt) return `<span class="badge b-warn">${esc(t('unverifiedBadge'))}</span>`;
+  if (ageYears(loc.lastVerifiedAt)>=2) return `<span class="badge b-warn">⏱ ${esc(t('staleBadge'))}</span>`;
+  return `<span class="badge b-ok">✓ ${esc(t('verifiedBadge'))}</span>`; }
+
+/* =====================================================================
+   7. Demo photos (inline SVG; never real infrastructure photos)
+   ===================================================================== */
+function demoPhoto(kind, label){
+  const bg = {skur:'#8d6e63',affald:'#6d7d6a',ydervaeg:'#a1665e',kaelder:'#5d6d7e',teknikrum:'#607d8b',loft:'#8c7b6b',approach:'#7a9a6a',label:'#cfd8dc'}[kind] || '#78909c';
+  let scene = '';
+  if (kind==='approach') scene = `<rect x="0" y="300" width="640" height="180" fill="#9e9e9e"/><path d="M240 480 L300 300 L340 300 L400 480Z" fill="#bdbdbd"/><rect x="420" y="150" width="160" height="150" fill="#795548"/><polygon points="410,150 500,90 590,150" fill="#5d4037"/><text x="320" y="270" font-size="60" text-anchor="middle" fill="#ffeb3b">➜</text>`;
+  else if (kind==='label') scene = `<rect x="140" y="120" width="360" height="240" rx="10" fill="#eceff1" stroke="#455a64" stroke-width="6"/><text x="320" y="190" font-size="30" text-anchor="middle" fill="#263238" font-family="sans-serif">TYPESKILT</text><text x="320" y="240" font-size="24" text-anchor="middle" fill="#263238" font-family="monospace">S/N 0000000</text><text x="320" y="290" font-size="22" text-anchor="middle" fill="#607d8b" font-family="sans-serif">fiktivt</text>`;
+  else scene = `<rect x="0" y="380" width="640" height="100" fill="rgba(0,0,0,.25)"/>${kind==='ydervaeg'?Array.from({length:12},(_,i)=>`<line x1="0" y1="${i*32}" x2="640" y2="${i*32}" stroke="rgba(0,0,0,.18)" stroke-width="3"/>`).join(''):''}
+    <rect x="360" y="110" width="120" height="150" rx="8" fill="#eceff1" stroke="#263238" stroke-width="5"/><circle cx="420" cy="150" r="8" fill="#43a047"/><rect x="455" y="60" width="8" height="55" fill="#263238"/>
+    <circle cx="420" cy="185" r="115" fill="none" stroke="#ffeb3b" stroke-width="8" stroke-dasharray="18 10"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="${bg}"/>${scene}
+    <rect x="12" y="12" width="250" height="44" rx="8" fill="rgba(0,0,0,.6)"/><text x="24" y="42" font-size="22" fill="#fff" font-family="sans-serif" font-weight="bold">DEMO · fiktivt foto</text>
+    <text x="24" y="460" font-size="20" fill="#fff" font-family="sans-serif">${esc(label||'')}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+const thumbSrc = p => p.thumbDataUrl || demoPhoto(p.demoKind, t('lt_'+p.demoKind) !== 'lt_'+p.demoKind ? t('lt_'+p.demoKind) : '');
+const fullSrc = p => p.dataUrl || thumbSrc(p);
+
+/* =====================================================================
+   8. Map (Leaflet + OSM for the prototype; Azure Maps in production)
+   ===================================================================== */
+let map, markerLayer, meMarker, meCircle, lineLayer;
+function initMap(){
+  map = L.map('map', {zoomControl:true, preferCanvas:true}).setView([56.165,10.18], 12);
+  let tileErrors = 0, tileOk = 0;
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  tiles.on('tileload', ()=>{ tileOk++; }).on('tileerror', ()=>{ tileErrors++; if (tileErrors>3 && !tileOk){ $('#map').classList.add('notiles'); const n=$('#tileNote'); n.textContent=t('tilesBlocked'); n.hidden=false; setTimeout(()=>n.hidden=true, 9000);} });
+  tiles.addTo(map);
+  markerLayer = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
+  map.on('click', e=>{
+    if (STATE.pickMode){ const cb=STATE.pickMode; STATE.pickMode=null; cb(e.latlng); return; }
+    if (STATE.sim){ setMe({lat:e.latlng.lat, lng:e.latlng.lng, acc:5, simulated:true}); STATE.sim=false; }
+  });
+}
+function renderMarkers(){
+  markerLayer.clearLayers();
+  for (const r of filtered()){
+    const x=techOf(r.c); const off = ['Decommissioned','Removed'].includes(r.c.operationalStatus);
+    const m = L.circleMarker([r.pos.lat, r.pos.lng], {radius: STATE.detailId===r.c.concentratorId?13:9, color: off?'#555':(r.loc.verificationStatus==='verified'?'#fff':'#f9c400'),
+      weight: STATE.detailId===r.c.concentratorId?5:3, fillColor: off?'#9e9e9e':x.color, fillOpacity: off?.5:.95, dashArray: off?'3 3':null});
+    m.bindTooltip(`${esc(r.c.concentratorId)} · ${esc(t('lt_'+r.loc.locationType))}`, {direction:'top'});
+    m.on('click', ()=>openDetail(r.c.concentratorId));
+    markerLayer.addLayer(m);
+  }
+  drawLine();
+}
+function drawLine(){
+  lineLayer.clearLayers();
+  if (!STATE.me || !STATE.detailId) return;
+  const p = posOf(currentLoc(STATE.detailId));
+  L.polyline([[STATE.me.lat,STATE.me.lng],[p.lat,p.lng]], {color:'#0b2a3c', weight:4, dashArray:'8 8'}).addTo(lineLayer);
+}
+
+/* =====================================================================
+   9. GPS
+   ===================================================================== */
+let watchId = null;
+function startGps(){
+  if (!('geolocation' in navigator)){ gpsFailed(); return; }
+  toast(t('gpsWait'));
+  try {
+    if (watchId!=null) navigator.geolocation.clearWatch(watchId);
+    let first = true;
+    watchId = navigator.geolocation.watchPosition(p=>{
+      setMe({lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy), simulated:false}, first); first=false;
+    }, gpsFailed, {enableHighAccuracy:true, maximumAge:5000, timeout:15000});
+  } catch { gpsFailed(); }
+}
+function gpsFailed(){ $('#btnSimPos').hidden=false; toast(t('gpsDenied')); renderNearest(); }
+function setMe(me, fly=true){
+  STATE.me = me;
+  const ll=[me.lat,me.lng];
+  if (!meMarker){ meMarker=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="you"></div>',iconSize:[20,20],iconAnchor:[10,10]}), zIndexOffset:1000}).addTo(map);
+    meCircle=L.circle(ll,{radius:me.acc,color:'#1565c0',weight:1,fillOpacity:.1}).addTo(map); }
+  meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(me.acc);
+  meMarker.bindTooltip(t('youAreHere',{a:me.acc}) + (me.simulated?' · '+t('simulated'):''));
+  if (fly && STATE.tab==='map' && !STATE.detailId) map.setView(ll, 16);
+  renderAll();
+}
+
+/* =====================================================================
+   10. Views
+   ===================================================================== */
+function showTab(tab){
+  STATE.tab = tab;
+  const wide = matchMedia('(min-width:960px)').matches;
+  for (const v of ['map','list','detail','jobs','job','more']) $('#v-'+v).hidden = !(v===tab || (wide && v==='map'));
+  if (wide && tab==='map') { $('#v-list').hidden=false; STATE.tab='list'; }
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.tab===({detail:'list',job:'jobs'}[tab]||tab) ? 'page':'false'));
+  if (tab==='map' || wide) setTimeout(()=>map.invalidateSize(), 50);
+  const show = ['map','list'].includes(tab) || (wide && tab!=='more');
+  document.querySelector('.searchbar').style.display = show ? '' : 'none';
+}
+function renderAll(){
+  renderMarkers(); renderNearest(); renderList();
+  if (STATE.detailId && !$('#v-detail').hidden) renderDetail();
+  if (!$('#v-jobs').hidden) renderJobs();
+  const n = STATE.filters.tech.size + STATE.filters.status.size + STATE.filters.flags.size; $('#filterCount').textContent = n||'';
+}
+function itemHtml(r){
+  const ph = r.photos[0]; const x=techOf(r.c);
+  const dist = r.dist!=null ? `${fmtDist(r.dist)}<br><span class="muted">${dirName(bearing(STATE.me,r.pos))}</span>` : '';
+  return `<button class="item" data-open="${esc(r.c.concentratorId)}">
+    ${ph ? `<img loading="lazy" alt="" src="${thumbSrc(ph)}">` : `<div class="noimg">${esc(t('noPhoto'))}</div>`}
+    <div class="main"><div class="id"><span class="dot" style="background:${x.color}"></span> ${esc(r.c.concentratorId)}</div>
+      <div class="sub">${LOC_ICON[r.loc.locationType]||''} ${esc(t('lt_'+r.loc.locationType))} · ${esc(r.loc.referenceAddress)}, ${esc(r.loc.city)}</div>
+      <div class="sub">${statusBadge(r.c.operationalStatus)} ${r.loc.verificationStatus!=='verified'||ageYears(r.loc.lastVerifiedAt)>=2?verifyBadge(r.loc):''}</div></div>
+    <div class="dist">${dist}</div></button>`;
+}
+function renderNearest(){
+  const el = $('#nearest'); if (STATE.detailId && STATE.tab!=='map'){ el.innerHTML=''; }
+  if (!STATE.me){ el.innerHTML = `<div class="card small">${esc(t('firstUse'))}</div>`; return; }
+  const r = filtered().filter(x=>!['Decommissioned','Removed'].includes(x.c.operationalStatus)).slice(0,2);
+  el.innerHTML = `<div class="card" style="padding:8px;display:flex;flex-direction:column;gap:6px"><div class="muted" style="padding:0 4px">${esc(t('nearest'))}</div>${r.map(itemHtml).join('')}</div>`;
+}
+function renderList(){
+  const r = filtered(); const w = $('#listWrap');
+  if (!r.length){ w.innerHTML = `<div class="empty"><b>${esc(t('noResults'))}</b>${esc(t('noResultsHint'))}</div><button class="ghost" data-act="clearFilters">${esc(t('clear'))}</button>`; return; }
+  w.innerHTML = `<div class="muted">${esc(t('found',{n:r.length}))}${STATE.me?'':' · '+esc(t('gpsOff'))}</div>` + r.slice(0,200).map(itemHtml).join('');
+}
+function openDetail(id){ STATE.detailId=id; showTab('detail'); renderDetail(); renderMarkers();
+  const p=posOf(currentLoc(id)); map.setView([p.lat,p.lng], Math.max(map.getZoom(),16)); $('#v-detail').scrollTop=0; }
+function navUrl(p){ return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`; }
+function renderDetail(){
+  const id = STATE.detailId; const c = concentrator(id); if (!c) return;
+  const inst = currentInst(id), loc = currentLoc(id), pos = posOf(loc), photos = photosOf(inst.installationId);
+  const primary = photos[0]; const dist = STATE.me ? haversine(STATE.me,pos) : null;
+  const place = loc.physicalLocationDescription || '—';
+  const notes = STATE.db.notes.filter(n=>n.concentratorId===id).sort((a,b)=>b.at.localeCompare(a.at));
+  const jobs = STATE.db.jobs.filter(j=>j.concentratorId===id).sort((a,b)=>b.openedAt.localeCompare(a.openedAt));
+  const allInst = STATE.db.installations.filter(i=>i.concentratorId===id).sort((a,b)=>b.validFrom.localeCompare(a.validFrom));
+  const events = STATE.db.events.filter(e=>e.entityId===id || allInst.some(i=>i.installationId===e.entityId || i.locationId===e.entityId)).sort((a,b)=>b.changedAt.localeCompare(a.changedAt));
+  const missing = v => v ? esc(v) : `<span class="badge b-warn">${esc(t('toFill'))}</span>`;
+  $('#detailWrap').innerHTML = `
+  <button class="ghost" data-act="back" style="min-height:44px">${esc(t('back'))}</button>
+  <div class="card" style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:24px;font-weight:850">${esc(c.concentratorId)}</div>${statusBadge(c.operationalStatus)}</div>
+    <div class="chips" style="gap:6px">${techBadge(c)} ${verifyBadge(loc)}</div>
+    ${primary ? `<button class="hero" data-photo="${esc(primary.photoId)}"><img alt="" src="${fullSrc(primary)}"><div class="cap">📷 ${esc(primary.caption||'')} · ${fmtDate(primary.takenAt||primary.uploadedAt)}</div></button>`
+              : `<div class="alert warn">📷 ${esc(t('noPhotos'))}</div>`}
+    <div class="place">${LOC_ICON[loc.locationType]||'📍'} ${esc(t('lt_'+loc.locationType))}</div>
+    <div style="font-size:18px;font-weight:600">${esc(place)}</div>
+    <div class="alert info">🔑 <div><b>${esc(t('access'))}:</b> ${loc.accessInstructions?esc(loc.accessInstructions):`<span class="badge b-warn">${esc(t('toFill'))}</span>`}</div></div>
+    <div class="alert warn">⚠ <div>${esc(t('addrWarn',{p:t('lt_'+loc.locationType).toLowerCase()}))}<br><span class="small">${esc(t('refAddr'))}: ${esc(loc.referenceAddress)}, ${esc(loc.postalCode)} ${esc(loc.city)}</span></div></div>
+    ${dist!=null?`<div style="font-size:20px;font-weight:800;text-align:center">${fmtDist(dist)} ${dirName(bearing(STATE.me,pos))}</div>`:''}
+    <div class="row"><a class="btn go" href="${navUrl(pos)}" target="_blank" rel="noopener">🧭 ${esc(t('navigate'))}</a>
+      ${can('verify')?`<button class="primary" data-act="verify">✓ ${esc(t('iAmHere'))}</button>`:''}</div>
+    <div class="small"><b>${esc(t('coords'))}:</b> <span class="mono">${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}</span>
+      <button class="ghost" style="width:auto;min-height:36px;padding:4px 10px" data-copy="${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}">${esc(t('copy'))}</button><br>
+      <span class="muted">${pos.verified?'✓ '+esc(t('coordsVerified')):'⚠ '+esc(t('coordsImported'))}</span></div>
+  </div>
+  <div class="card"><h2>🛠️ ${esc(t('jobs'))}</h2>
+    ${can('job')?`<button class="warn" data-act="startJob">📨 ${esc(t('startJob'))}</button>`:''}
+    ${jobs.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${jobs.map(j=>`<button class="ghost" style="justify-content:space-between" data-job="${esc(j.jobId)}"><span>${esc(j.jobId)} · ${fmtDate(j.openedAt)}</span><span>${j.closedAt?esc(t('oc_'+j.outcome)):'● '+esc(t('jobOpened'))}</span></button>`).join('')}</div>`:''}
+  </div>
+  <div class="card"><h2>📷 ${esc(t('photos'))} (${photos.length})</h2>
+    ${photos.length?`<div class="thumbs">${photos.map(p=>`<button data-photo="${esc(p.photoId)}" aria-label="${esc(p.caption||'')}"><img loading="lazy" alt="" src="${thumbSrc(p)}">${p.isPrimary?'<span class="star">★</span>':''}</button>`).join('')}</div>`:`<div class="muted">${esc(t('noPhotos'))}</div>`}
+    ${can('photo')?`<button class="primary" style="margin-top:10px" data-act="addPhoto">📷 ${esc(t('addPhoto'))}</button>`:''}
+  </div>
+  <div class="card"><h2>📝 ${esc(t('notes'))}</h2>
+    ${notes.length?`<ul class="timeline">${notes.map(n=>`<li><time>${fmtDate(n.at,true)} · ${esc(n.by)}</time>${esc(n.text)}</li>`).join('')}</ul>`:`<div class="muted">${esc(t('noNotes'))}</div>`}
+    ${can('note')?`<button class="ghost" style="margin-top:10px" data-act="addNote">＋ ${esc(t('addNote'))}</button>`:''}
+  </div>
+  <div class="card"><h2>${esc(t('tech'))}</h2><dl class="kv">
+    <dt>${esc(t('technology'))}</dt><dd>${esc(techOf(c).name)}</dd>
+    <dt>${esc(t('manufacturer'))}</dt><dd>${missing(c.manufacturer)}</dd>
+    <dt>${esc(t('model'))}</dt><dd>${missing(c.model)}</dd>
+    <dt>${esc(t('serial'))}</dt><dd>${missing(c.serialNumber)}</dd>
+    <dt>${esc(t('sim'))}</dt><dd class="mono">${missing(c.simNumber)}</dd>
+    <dt>Firmware</dt><dd>${missing(c.firmware)}</dd>
+    <dt>${esc(t('installed'))}</dt><dd>${fmtDate(inst.validFrom)}</dd>
+    <dt>${esc(t('lastVerified'))}</dt><dd>${fmtDate(loc.lastVerifiedAt)}</dd>
+    <dt>${esc(t('updatedBy'))}</dt><dd>${esc(c.updatedBy)}</dd>
+    <dt>My Maps ID</dt><dd class="mono">${esc(c.externalId)}</dd></dl></div>
+  <div class="card"><h2>🕓 ${esc(t('history'))}</h2>
+    <ul class="timeline">${allInst.map(i=>{ const l=STATE.db.locations.find(x=>x.locationId===i.locationId); const np=photosOf(i.installationId).length;
+      return `<li class="${i.isCurrent?'':'ev-move'}"><time>${fmtDate(i.validFrom)} – ${i.validTo?fmtDate(i.validTo):''}</time><b>${esc(t('installation'))} ${esc(i.installationId)}</b> (${esc(i.isCurrent?t('current'):t('ended'))})<br>
+        ${esc(t('lt_'+l.locationType))} · ${esc(l.referenceAddress)}, ${esc(l.city)}${i.relocationReason?`<br>↪ ${esc(i.relocationReason)}`:''}${!i.isCurrent&&np?`<br><span class="muted">📷 ${np} ${esc(t('oldPhotosKept'))}</span>`:''}</li>`; }).join('')}
+    ${events.slice(0,30).map(e=>`<li class="${['move'].includes(e.action)?'ev-move':['report','status'].includes(e.action)?'ev-bad':''}"><time>${fmtDate(e.changedAt,true)} · ${esc(e.changedBy)}</time>${esc(t('ev_'+e.action))}${e.newValue&&e.newValue.status?': '+esc(t('st_'+e.newValue.status)):''}${e.reason?` – ${esc(e.reason)}`:''}${e.newValue&&e.newValue.text&&e.action!=='note'?` – ${esc(e.newValue.text)}`:''}</li>`).join('')}</ul></div>
+  <div class="card"><h2>${esc(t('moreActions'))}</h2><div style="display:flex;flex-direction:column;gap:8px">
+    <button class="ghost" data-act="report">⚑ ${esc(t('report'))}</button>
+    ${can('move')?`<button class="ghost" data-act="move">↪ ${esc(t('move'))}</button>`:''}
+    ${can('status')?`<button class="ghost" data-act="status">⏻ ${esc(t('changeStatus'))}</button>`:''}</div></div>`;
+}
+function renderJobs(){
+  const js = [...STATE.db.jobs].sort((a,b)=>b.openedAt.localeCompare(a.openedAt));
+  const open = js.filter(j=>!j.closedAt), closed = js.filter(j=>j.closedAt);
+  const li = j => { const c=concentrator(j.concentratorId); const loc=currentLoc(j.concentratorId);
+    return `<button class="item" data-job="${esc(j.jobId)}"><div class="main"><div class="id">${esc(j.jobId)} · ${esc(j.concentratorId)}</div>
+      <div class="sub">${esc(t('lt_'+loc.locationType))} · ${esc(loc.referenceAddress)}, ${esc(loc.city)}</div><div class="sub">${fmtDate(j.openedAt,true)} · ${esc(j.openedBy)}</div></div>
+      <div class="dist">${j.closedAt?esc(t('oc_'+j.outcome)):'<span class="badge b-warn">● '+esc(t('jobOpened'))+'</span>'}</div></button>`; };
+  $('#jobsWrap').innerHTML = !js.length ? `<div class="empty"><b>${esc(t('noJobs'))}</b>${esc(t('noJobsHint'))}</div>` :
+    `<h2 style="margin:4px 0">${esc(t('openJobs'))} (${open.length})</h2>${open.map(li).join('')||'<div class="muted">—</div>'}
+     <h2 style="margin:4px 0">${esc(t('closedJobs'))} (${closed.length})</h2>${closed.map(li).join('')}
+     <button class="ghost" data-act="exportJobs">${esc(t('exportJobs'))}</button>`;
+}
+function cmdName(cmd){ return cmd.name[LANG] || cmd.name.da; }
+function jobReport(j){
+  const c=concentrator(j.concentratorId), loc=currentLoc(j.concentratorId), pos=posOf(loc);
+  const lines = [
+    `${t('serviceReport').toUpperCase()} – ${c.concentratorId}`,
+    `${j.jobId} · ${t('jobOpened')}: ${fmtDate(j.openedAt,true)}${j.closedAt?' · '+t('jobClosed')+': '+fmtDate(j.closedAt,true):''}`,
+    `${t('tech_by')}: ${j.openedBy}`,
+    `${t('technology')}: ${techOf(c).name} · ${t('sim')}: ${c.simNumber}`,
+    `${t('placeTitle')}: ${t('lt_'+loc.locationType)} – ${loc.physicalLocationDescription||'—'}`,
+    `${t('refAddr')}: ${loc.referenceAddress}, ${loc.postalCode} ${loc.city}`,
+    `${t('coords')}: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`, '',
+    ...j.log.map(e=>`${fmtDate(e.at,true)}  ${e.type==='sms-out'?'→ '+t('smsSent'):e.type==='sms-in'?'← '+t('smsReply'):'• '+t('note')}: ${e.text}`), ''];
+  if (j.closedAt){ lines.push(`${t('outcome')}: ${t('oc_'+j.outcome)}`, `${t('summary')}: ${j.summary}`);
+    if (j.gps) lines.push(`GPS: ${j.gps.lat.toFixed(6)}, ${j.gps.lng.toFixed(6)} (±${j.gps.acc} m)`); }
+  return lines.join('\n');
+}
+function renderJob(){
+  const j = STATE.db.jobs.find(x=>x.jobId===STATE.jobId); if (!j) return;
+  const c = concentrator(j.concentratorId), loc=currentLoc(j.concentratorId);
+  const cls = {'sms-out':'sms-out','sms-in':'sms-in',note:''};
+  $('#jobWrap').innerHTML = `
+  <button class="ghost" data-act="backJobs" style="min-height:44px">${esc(t('back'))}</button>
+  <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b style="font-size:20px">${esc(j.jobId)} · ${esc(c.concentratorId)}</b>
+    ${j.closedAt?`<span class="badge b-ok">${esc(t('oc_'+j.outcome))}</span>`:`<span class="badge b-warn">● ${esc(t('jobOpened'))}</span>`}</div>
+    <div class="small">${LOC_ICON[loc.locationType]||''} ${esc(t('lt_'+loc.locationType))} · ${esc(loc.physicalLocationDescription||'')}</div>
+    <div class="small">${esc(t('sim'))}: <span class="mono">${esc(c.simNumber)}</span></div>
+    <button class="ghost" data-open="${esc(c.concentratorId)}" style="margin-top:8px;min-height:44px">${esc(t('open'))} ${esc(c.concentratorId)}</button></div>
+  ${!j.closedAt && can('job') ? `<div class="card"><h2>📨 ${esc(t('sendSms'))}</h2><div class="muted small" style="margin-bottom:8px">${esc(t('smsHint'))}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${STATE.commands.map(cmd=>`<button class="${cmd.text?'primary':'ghost'}" data-cmd="${esc(cmd.id)}">${esc(cmdName(cmd))}${cmd.text&&!cmd.verified?' ⚠':''}</button>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><button class="go" data-act="reply">← ${esc(t('logReply'))}</button><button class="ghost" data-act="jobNote">＋ ${esc(t('addJobNote'))}</button></div></div>`:''}
+  <div class="card"><h2>Log</h2>${j.log.length?`<ul class="timeline">${j.log.map(e=>`<li class="${cls[e.type]||''}"><time>${fmtDate(e.at,true)} · ${e.type==='sms-out'?'→ '+esc(t('smsSent')):e.type==='sms-in'?'← '+esc(t('smsReply')):'• '+esc(t('note'))}</time><span class="${e.type==='note'?'':'mono'}">${esc(e.text)}</span></li>`).join('')}</ul>`:'<div class="muted">—</div>'}</div>
+  ${!j.closedAt && can('job') ? `<button class="warn" data-act="closeJob">✓ ${esc(t('closeJob'))}</button>` : ''}
+  <div class="card"><h2>${esc(t('serviceReport'))}</h2><pre class="mono" style="white-space:pre-wrap;font-size:13px;margin:0">${esc(jobReport(j))}</pre>
+    <button class="ghost" style="margin-top:8px" data-act="copyReport">${esc(t('copyReport'))}</button></div>`;
+}
+function renderMore(){
+  const s = STATE.session; const r = rows();
+  const q = {noPhoto:r.filter(x=>!x.photos.length).length, unverified:r.filter(x=>x.loc.verificationStatus!=='verified').length,
+    stale:r.filter(x=>ageYears(x.loc.lastVerifiedAt)>=2).length, incomplete:r.filter(x=>isIncomplete(x.c,x.loc)).length,
+    reported:r.filter(x=>x.loc.verificationStatus==='needs-check').length};
+  $('#moreWrap').innerHTML = `
+  <div class="card"><h2>${esc(t('user'))}</h2>
+    <label for="selUser">${esc(t('user'))}</label><select id="selUser">${['montør.demo1','montør.demo2','kontor.demo','admin.demo'].map(u=>`<option ${u===s.user?'selected':''}>${u}</option>`).join('')}</select>
+    <label for="selRole">${esc(t('role'))}</label><select id="selRole">${Object.keys(ROLES).map(r2=>`<option ${r2===s.role?'selected':''}>${r2}</option>`).join('')}</select>
+    <div class="muted small" style="margin-top:6px">Entra ID: ${LANG==='da'?'rolle kommer fra gruppe i produktion':'rolul vine din grupul Entra în producție'}</div></div>
+  <div class="card"><h2>${esc(t('dataQuality'))}</h2><dl class="kv">
+    <dt>${esc(t('found',{n:''})).trim()}</dt><dd>${r.length}</dd>
+    <dt>${esc(t('noPhoto'))}</dt><dd><button class="ghost" style="width:auto;min-height:36px;padding:4px 12px" data-flag="noPhoto">${q.noPhoto}</button></dd>
+    <dt>${esc(t('unverified'))}</dt><dd><button class="ghost" style="width:auto;min-height:36px;padding:4px 12px" data-flag="unverified">${q.unverified}</button></dd>
+    <dt>${esc(t('stale'))}</dt><dd><button class="ghost" style="width:auto;min-height:36px;padding:4px 12px" data-flag="stale">${q.stale}</button></dd>
+    <dt>${esc(t('incomplete'))}</dt><dd><button class="ghost" style="width:auto;min-height:36px;padding:4px 12px" data-flag="incomplete">${q.incomplete}</button></dd>
+    <dt>${esc(t('reported'))}</dt><dd>${q.reported}</dd></dl></div>
+  <div class="card"><h2>${esc(t('commandsTitle'))}</h2><div class="alert warn small">${esc(t('commandsHint'))}</div>
+    ${STATE.commands.map((cmd,i)=>`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:6px">
+      <label>${esc(cmdName(cmd))}</label>
+      <input data-cmdtext="${i}" ${can('catalog')?'':'disabled'} value="${esc(cmd.text)}" placeholder="‹${esc(t('toFill'))}›">
+      <label style="font-weight:500;display:flex;gap:8px;align-items:center"><input type="checkbox" style="width:24px;height:24px" data-cmdver="${i}" ${cmd.verified?'checked':''} ${can('catalog')?'':'disabled'}> ${esc(t('verifiedSrc'))}</label></div>`).join('')}
+    ${can('catalog')?`<button class="primary" style="margin-top:10px" data-act="saveCmds">${esc(t('save'))}</button>`:`<div class="muted small">${esc(t('noRight'))}</div>`}</div>
+  <div class="card"><h2>${esc(t('about'))}</h2><p class="small" style="margin:0 0 10px">${esc(t('aboutText'))}</p>
+    <button class="danger" data-act="reset">${esc(t('resetDemo'))}</button></div>`;
+  $('#selUser').onchange = e=>{ repo.saveSession({user:e.target.value}); };
+  $('#selRole').onchange = e=>{ repo.saveSession({role:e.target.value}); renderMore(); };
+}
+
+/* =====================================================================
+   11. Sheets (dialogs built into the page; no alert/confirm)
+   ===================================================================== */
+function openSheet(html, onSubmit){
+  const p = $('#sheetPanel'); p.innerHTML = `<form id="sheetForm" novalidate>${html}</form>`; $('#sheet').hidden = false;
+  const f = $('#sheetForm'); f.style.cssText='display:flex;flex-direction:column;gap:8px';
+  f.addEventListener('submit', async e=>{ e.preventDefault(); const ok = await onSubmit(new FormData(f), f); if (ok!==false) closeSheet(); });
+  f.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheet);
+  const first = f.querySelector('input:not([type=hidden]),textarea,select'); if (first) setTimeout(()=>first.focus(), 50);
+  return f;
+}
+function closeSheet(){ $('#sheet').hidden = true; $('#sheetPanel').innerHTML=''; }
+$('#sheet').addEventListener('click', e=>{ if (e.target.id==='sheet') closeSheet(); });
+const btns = (okLabel, cls='primary') => `<div class="row" style="margin-top:6px"><button type="button" class="ghost" data-close>${esc(t('cancel'))}</button><button type="submit" class="${cls}">${esc(okLabel)}</button></div>`;
+function guard(action){ if (!can(action)){ toast(t('noRight')); return false; } return true; }
+async function refresh(){ const s = await repo.snapshot(); STATE.db=s.db; STATE.commands=s.commands; STATE.session=s.session; renderAll(); if (!$('#v-job').hidden) renderJob(); }
+
+function filterSheet(){
+  const f = STATE.filters; const chip = (set,val,label,dot) => `<button type="button" class="chip" data-set="${set}" data-val="${esc(val)}" aria-pressed="${f[set].has(val)}">${dot?`<span class="dot" style="background:${dot}"></span> `:''}${esc(label)}</button>`;
+  const form = openSheet(`<h2>${esc(t('filter'))}</h2>
+    <label>${esc(t('technology'))}</label><div class="chips">${TECH.map(x=>chip('tech',x.technologyId,x.name,x.color)).join('')}</div>
+    <label>${esc(t('status'))}</label><div class="chips">${STATUSES.map(s=>chip('status',s,t('st_'+s))).join('')}</div>
+    <label>Data</label><div class="chips">${['withPhoto','noPhoto','unverified','stale','incomplete'].map(k=>chip('flags',k,t(k))).join('')}</div>
+    <div class="row" style="margin-top:8px"><button type="button" class="ghost" data-act2="clear">${esc(t('clear'))}</button><button type="submit" class="primary">${esc(t('apply'))}</button></div>`, ()=>{ renderAll(); });
+  form.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ const s=f[b.dataset.set]; const v=b.dataset.val; s.has(v)?s.delete(v):s.add(v); b.setAttribute('aria-pressed', s.has(v)); });
+  form.querySelector('[data-act2=clear]').onclick=()=>{ f.tech.clear(); f.status.clear(); f.flags.clear(); closeSheet(); renderAll(); };
+}
+function noteSheet(cid){
+  openSheet(`<h2>${esc(t('addNote'))} · ${esc(cid)}</h2><label for="nt">${esc(t('noteText'))} *</label><textarea id="nt" name="text" maxlength="2000" placeholder="${esc(t('notePh'))}"></textarea>${btns(t('save'))}`,
+    async fd=>{ const text=String(fd.get('text')||'').trim(); if(!text){ toast(t('required')); return false; } await repo.addNote(cid,text); toast(t('noteSaved')); await refresh(); });
+}
+function verifySheet(cid){
+  const me = STATE.me;
+  if (!me){ toast(t('gpsDenied')); startGps(); return; }
+  const bad = me.acc > 25;
+  openSheet(`<h2>${esc(t('confirmHereTitle'))}</h2><p style="margin:0">${esc(t('confirmHereText'))}</p>
+    <div class="mono">${me.lat.toFixed(6)}, ${me.lng.toFixed(6)} (±${me.acc} m)${me.simulated?' · '+esc(t('simulated')):''}</div>
+    ${bad?`<div class="alert warn">${esc(t('accuracyBad',{a:me.acc}))}</div>`:''}${btns(t('confirm'),'go')}`,
+    async ()=>{ await repo.verifyPosition(cid, me); toast(t('positionSaved')); await refresh(); });
+}
+function reportSheet(cid){
+  const fields=['position','address','place','access','photo','missing','other'];
+  openSheet(`<h2>${esc(t('reportTitle'))} · ${esc(cid)}</h2><label for="rf">${esc(t('reportWhat'))}</label>
+    <select id="rf" name="field">${fields.map(f=>`<option value="${f}">${esc(t('rf_'+f))}</option>`).join('')}</select>
+    <label for="rt">${esc(t('describe'))} *</label><textarea id="rt" name="text" maxlength="2000"></textarea>${btns(t('save'),'warn')}`,
+    async fd=>{ const text=String(fd.get('text')||'').trim(); if(!text){ toast(t('required')); return false; }
+      await repo.report(cid, String(fd.get('field')), t('rf_'+fd.get('field'))+': '+text); toast(t('reportSaved')); await refresh(); });
+}
+function moveSheet(cid, keep){
+  const loc = currentLoc(cid); const k = keep || {};
+  const f = openSheet(`<h2>${esc(t('moveTitle'))} · ${esc(cid)}</h2>
+    <label for="mr">${esc(t('moveReason'))} *</label><input id="mr" name="reason" maxlength="300" value="${esc(k.reason||'')}">
+    <label>${esc(t('newPos'))} *</label><div class="row"><button type="button" class="ghost" data-pos="gps">📍 ${esc(t('useGps'))}</button><button type="button" class="ghost" data-pos="map">🗺️ ${esc(t('pickMap'))}</button></div>
+    <div id="mvPos" class="mono">${k.lat!=null?`${k.lat.toFixed(6)}, ${k.lng.toFixed(6)}`:'—'}</div>
+    <label for="ma">${esc(t('newAddr'))} *</label><input id="ma" name="address" value="${esc(k.address ?? loc.referenceAddress)}">
+    <div class="row"><div><label for="mp">${esc(t('newPostal'))}</label><input id="mp" name="postal" inputmode="numeric" value="${esc(k.postal ?? loc.postalCode)}"></div><div><label for="mc">${esc(t('newCity'))}</label><input id="mc" name="city" value="${esc(k.city ?? loc.city)}"></div></div>
+    <label for="mt">${esc(t('placeType'))}</label><select id="mt" name="type">${LOC_TYPES.map(x=>`<option value="${x}" ${x===(k.type||loc.locationType)?'selected':''}>${esc(t('lt_'+x))}</option>`).join('')}</select>
+    <label for="md">${esc(t('placeDesc'))} *</label><textarea id="md" name="desc">${esc(k.desc||'')}</textarea>
+    <label for="mx">${esc(t('accessInstr'))}</label><input id="mx" name="access" value="${esc(k.access||'')}">${btns(t('save'),'warn')}`,
+    async fd=>{ const d=Object.fromEntries([...fd.entries()].map(([a,b])=>[a,String(b).trim()]));
+      if (k.lat==null){ toast(t('posMissing')); return false; } if(!d.reason||!d.address||!d.desc){ toast(t('required')); return false; }
+      await repo.move(cid, {...d, lat:+k.lat.toFixed(6), lng:+k.lng.toFixed(6), fromGps:!!k.fromGps}); toast(t('moveDone')); await refresh(); });
+  const snapshot = () => Object.fromEntries([...new FormData(f).entries()].map(([a,b])=>[a,String(b)]));
+  f.querySelector('[data-pos=gps]').onclick=()=>{ if(!STATE.me){ toast(t('gpsDenied')); startGps(); return; }
+    Object.assign(k,{lat:STATE.me.lat,lng:STATE.me.lng,fromGps:!STATE.me.simulated}); $('#mvPos').textContent=`${k.lat.toFixed(6)}, ${k.lng.toFixed(6)} (±${STATE.me.acc} m)`; };
+  f.querySelector('[data-pos=map]').onclick=()=>{ const kept={...k,...snapshot()}; closeSheet(); showTab('map'); toast(t('pickTap'));
+    STATE.pickMode = ll => { kept.lat=ll.lat; kept.lng=ll.lng; kept.fromGps=false; showTab('detail'); moveSheet(cid, kept); }; };
+}
+function statusSheet(cid){
+  const c = concentrator(cid);
+  const f = openSheet(`<h2>${esc(t('statusTitle'))} · ${esc(cid)}</h2>
+    <label for="ss">${esc(t('newStatus'))}</label><select id="ss" name="status">${STATUSES.map(s=>`<option value="${s}" ${s===c.operationalStatus?'selected':''}>${esc(t('st_'+s))}</option>`).join('')}</select>
+    <label for="sr">${esc(t('reason'))} *</label><textarea id="sr" name="reason" maxlength="500"></textarea>
+    <div id="sConf" hidden><label for="sc">${esc(t('typeId'))}: <span class="mono">${esc(cid)}</span></label><input id="sc" name="confirm" autocomplete="off"></div>${btns(t('save'),'danger')}`,
+    async fd=>{ const st=String(fd.get('status')), reason=String(fd.get('reason')||'').trim();
+      if(!reason){ toast(t('required')); return false; }
+      if (['Decommissioned','Removed'].includes(st) && String(fd.get('confirm')||'').trim()!==cid){ toast(t('typeId')); return false; }
+      await repo.setStatus(cid, st, reason); toast(t('statusSaved')); await refresh(); });
+  const sel=f.querySelector('#ss'); const upd=()=>{ $('#sConf').hidden = !['Decommissioned','Removed'].includes(sel.value); }; sel.onchange=upd; upd();
+}
+function photoMetaSheet(cid, img){
+  openSheet(`<h2>${esc(t('addPhoto'))} · ${esc(cid)}</h2><img src="${img.thumbDataUrl}" alt="" style="width:100%;border-radius:10px">
+    <label for="pc">${esc(t('photoCaption'))}</label><input id="pc" name="caption" maxlength="300" placeholder="${esc(t('photoCaptionPh'))}">${btns(t('save'))}`,
+    async fd=>{ await repo.addPhoto(cid, {...img, caption:String(fd.get('caption')||'').trim()}); toast(t('photoSaved')); await refresh(); });
+}
+function cmdSheet(cmdId){
+  const cmd = STATE.commands.find(c=>c.id===cmdId); const j = STATE.db.jobs.find(x=>x.jobId===STATE.jobId); const c = concentrator(j.concentratorId);
+  const f = openSheet(`<h2>📨 ${esc(cmdName(cmd))}</h2>
+    ${!cmd.text?`<div class="alert warn small">${esc(t('cmdNotSet'))}</div>`:(!cmd.verified?`<div class="alert warn small">⚠ ${esc(t('notVerifiedCmd'))}</div>`:'')}
+    <div>${esc(t('smsTo'))}: <span class="mono">${esc(c.simNumber)}</span></div>
+    <label for="ct">${esc(t('cmdText'))} *</label><textarea id="ct" name="text" class="mono" maxlength="160">${esc(cmd.text)}</textarea>
+    <div class="row"><a class="btn primary" id="smsLink" href="#">📱 ${esc(t('openSmsApp'))}</a><button type="button" class="ghost" id="smsCopy">${esc(t('copy'))}</button></div>
+    <div class="muted small">${esc(t('smsHint'))}</div>${btns(t('logSent'),'go')}`,
+    async fd=>{ const text=String(fd.get('text')||'').trim(); if(!text){ toast(t('required')); return false; }
+      await repo.logJob(STATE.jobId,{type:'sms-out', cmdId, to:c.simNumber, text}); await refresh(); });
+  const upd=()=>{ const body=encodeURIComponent(f.querySelector('#ct').value); f.querySelector('#smsLink').href = `sms:${c.simNumber}?&body=${body}`; };
+  f.querySelector('#ct').oninput=upd; upd();
+  f.querySelector('#smsCopy').onclick=()=>copyText(f.querySelector('#ct').value);
+}
+function replySheet(type){
+  openSheet(`<h2>${type==='sms-in'?'← '+esc(t('logReply')):'＋ '+esc(t('addJobNote'))}</h2>
+    <textarea name="text" maxlength="2000" class="${type==='sms-in'?'mono':''}" placeholder="${type==='sms-in'?esc(t('replyPh')):''}"></textarea>${btns(t('save'))}`,
+    async fd=>{ const text=String(fd.get('text')||'').trim(); if(!text){ toast(t('required')); return false; } await repo.logJob(STATE.jobId,{type,text}); await refresh(); });
+}
+function closeJobSheet(){
+  openSheet(`<h2>✓ ${esc(t('closeJob'))}</h2><label for="oc">${esc(t('outcome'))}</label>
+    <select id="oc" name="outcome">${['resolved','partial','replace','unresolved'].map(o=>`<option value="${o}">${esc(t('oc_'+o))}</option>`).join('')}</select>
+    <label for="su">${esc(t('summary'))} *</label><textarea id="su" name="summary" maxlength="2000"></textarea>${btns(t('closeJob'),'warn')}`,
+    async fd=>{ const s=String(fd.get('summary')||'').trim(); if(!s){ toast(t('required')); return false; }
+      await repo.closeJob(STATE.jobId, String(fd.get('outcome')), s, STATE.me?{lat:STATE.me.lat,lng:STATE.me.lng,acc:STATE.me.acc}:null); await refresh(); });
+}
+
+/* =====================================================================
+   12. Photo intake: type/size check, resize, thumbnail, SHA-256
+   ===================================================================== */
+let photoTarget = null;
+$('#fileIn').addEventListener('change', async e=>{
+  const file = e.target.files && e.target.files[0]; e.target.value=''; if (!file || !photoTarget) return;
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)){ toast(t('photoType')); return; }
+  if (file.size > 15*1024*1024){ toast(t('photoTooBig')); return; }
+  toast(t('photoProc'));
+  try {
+    const buf = await file.arrayBuffer();
+    let sha256 = ''; try { const h = await crypto.subtle.digest('SHA-256', buf); sha256 = [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''); } catch {}
+    const bmp = await createImageBitmap(new Blob([buf],{type:file.type}));
+    const scaled = max => { const k=Math.min(1, max/Math.max(bmp.width,bmp.height)); const cv=document.createElement('canvas');
+      cv.width=Math.round(bmp.width*k); cv.height=Math.round(bmp.height*k); cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height); return cv.toDataURL('image/jpeg',.8); };
+    // Re-encoding through canvas strips EXIF (incl. GPS) and any non-image payload.
+    const img = {fileName:file.name.replace(/[^\w.\-]/g,'_').slice(0,80), dataUrl:scaled(1280), thumbDataUrl:scaled(320), sha256, takenAt:new Date(file.lastModified||Date.now()).toISOString()};
+    if (sha256 && STATE.db.photos.some(p=>p.sha256===sha256)) toast('Duplicate (SHA-256)');
+    photoMetaSheet(photoTarget, img);
+  } catch { toast(t('photoType')); }
+});
+
+/* =====================================================================
+   13. Photo viewer
+   ===================================================================== */
+let viewerList = [], viewerIdx = 0;
+function openViewer(photoId){
+  const ph = STATE.db.photos.find(p=>p.photoId===photoId); viewerList = photosOf(ph.installationId); viewerIdx = viewerList.findIndex(p=>p.photoId===photoId);
+  $('#viewer').hidden=false; showViewer();
+}
+function showViewer(){ const p=viewerList[viewerIdx]; $('#viewerImg').src=fullSrc(p);
+  $('#viewerTxt').innerHTML = `${esc(p.caption||'')}<br><span style="opacity:.75">${fmtDate(p.takenAt||p.uploadedAt)} · ${esc(p.uploadedBy||'')}${p.isPrimary?' · ★ '+esc(t('primary')):''}</span>
+    ${!p.isPrimary && can('photo')?` <button class="warn" style="width:auto;min-height:36px;padding:4px 10px;margin-top:4px" id="vPrim">★ ${esc(t('setPrimary'))}</button>`:''}`;
+  const b=$('#vPrim'); if (b) b.onclick=async()=>{ await repo.setPrimary(p.photoId); await refresh(); viewerList=photosOf(p.installationId); viewerIdx=viewerList.findIndex(x=>x.photoId===p.photoId); showViewer(); };
+}
+$('#viewerClose').onclick=()=>{ $('#viewer').hidden=true; };
+$('#viewerPrev').onclick=()=>{ viewerIdx=(viewerIdx-1+viewerList.length)%viewerList.length; showViewer(); };
+$('#viewerNext').onclick=()=>{ viewerIdx=(viewerIdx+1)%viewerList.length; showViewer(); };
+
+/* =====================================================================
+   14. Event wiring (one delegated handler)
+   ===================================================================== */
+document.addEventListener('click', async e=>{
+  const el = e.target.closest('[data-open],[data-act],[data-photo],[data-job],[data-cmd],[data-copy],[data-flag],[data-tab]'); if (!el) return;
+  if (el.closest('#sheet') && !el.dataset.cmd) return;
+  if (el.dataset.tab){ const tb=el.dataset.tab; if (tb==='more') renderMore(); if (tb==='jobs') renderJobs(); showTab(tb); return; }
+  if (el.dataset.open){ openDetail(el.dataset.open); return; }
+  if (el.dataset.photo){ openViewer(el.dataset.photo); return; }
+  if (el.dataset.job){ STATE.jobId=el.dataset.job; showTab('job'); renderJob(); return; }
+  if (el.dataset.cmd){ cmdSheet(el.dataset.cmd); return; }
+  if (el.dataset.copy){ copyText(el.dataset.copy); return; }
+  if (el.dataset.flag){ STATE.filters.flags.clear(); STATE.filters.flags.add(el.dataset.flag); renderAll(); showTab('list'); return; }
+  const id = STATE.detailId;
+  switch (el.dataset.act){
+    case 'back': STATE.detailId=null; lineLayer.clearLayers(); showTab(matchMedia('(min-width:960px)').matches?'list':'map'); renderMarkers(); break;
+    case 'backJobs': renderJobs(); showTab('jobs'); break;
+    case 'clearFilters': STATE.filters.tech.clear(); STATE.filters.status.clear(); STATE.filters.flags.clear(); STATE.q=''; $('#q').value=''; renderAll(); break;
+    case 'verify': if (guard('verify')) verifySheet(id); break;
+    case 'addNote': if (guard('note')) noteSheet(id); break;
+    case 'addPhoto': if (guard('photo')){ photoTarget=id; $('#fileIn').click(); } break;
+    case 'report': reportSheet(id); break;
+    case 'move': if (guard('move')) moveSheet(id); break;
+    case 'status': if (guard('status')) statusSheet(id); break;
+    case 'startJob': if (guard('job')){ const open=STATE.db.jobs.find(j=>j.concentratorId===id && !j.closedAt);
+        STATE.jobId = open ? open.jobId : await repo.openJob(id); await refresh(); showTab('job'); renderJob(); } break;
+    case 'reply': replySheet('sms-in'); break;
+    case 'jobNote': replySheet('note'); break;
+    case 'closeJob': closeJobSheet(); break;
+    case 'copyReport': copyText(jobReport(STATE.db.jobs.find(x=>x.jobId===STATE.jobId))); break;
+    case 'exportJobs': { const head='jobId;concentratorId;openedAt;closedAt;openedBy;outcome;summary;smsCount';
+      const q = v => '"'+String(v??'').replace(/"/g,'""')+'"';
+      copyText([head, ...STATE.db.jobs.map(j=>[j.jobId,j.concentratorId,j.openedAt,j.closedAt||'',j.openedBy,j.outcome||'',j.summary,j.log.filter(x=>x.type==='sms-out').length].map(q).join(';'))].join('\n')); break; }
+    case 'saveCmds': { if (!guard('catalog')) break; const cmds = STATE.commands.map((c,i)=>({...c, text:document.querySelector(`[data-cmdtext="${i}"]`).value.trim(), verified:document.querySelector(`[data-cmdver="${i}"]`).checked}));
+      await repo.saveCommands(cmds); await refresh(); renderMore(); toast(t('save')+' ✓'); break; }
+    case 'reset': { const s=repo.a.reset(); STATE.detailId=null; STATE.jobId=null; await refresh(); renderMore(); toast(t('resetDone')); break; }
+  }
+});
+document.querySelector('nav.tabs').addEventListener('click', e=>{ const b=e.target.closest('[data-tab]'); if (b && b.dataset.tab==='list') renderList(); });
+let qTimer; $('#q').addEventListener('input', e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ STATE.q=e.target.value; renderAll();
+  if (STATE.q && STATE.tab==='map'){ const r=filtered(); if (r.length===1) openDetail(r[0].c.concentratorId); else if (r.length) map.fitBounds(L.latLngBounds(r.map(x=>[x.pos.lat,x.pos.lng])).pad(.2), {maxZoom:16}); } }, 200); });
+$('#q').addEventListener('keydown', e=>{ if (e.key==='Enter'){ const r=filtered(); if (r.length) openDetail(r[0].c.concentratorId); } });
+$('#btnFilter').onclick = filterSheet;
+$('#btnLocate').onclick = startGps;
+$('#btnSimPos').onclick = ()=>{ STATE.sim=true; toast(t('simTap')); };
+$('#lang').onchange = async e=>{ LANG=e.target.value; await repo.saveSession({lang:LANG}); applyI18n(); renderAll(); if(!$('#v-more').hidden) renderMore(); if(!$('#v-job').hidden) renderJob(); };
+document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ if(!$('#viewer').hidden) $('#viewer').hidden=true; else if(!$('#sheet').hidden) closeSheet(); } });
+
+/* =====================================================================
+   15. Boot
+   ===================================================================== */
+(async function boot(){
+  $('#listWrap').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+  const s = await repo.snapshot(); STATE.db=s.db; STATE.commands=s.commands; STATE.session=s.session;
+  LANG = s.session.lang || 'da'; $('#lang').value = LANG; applyI18n();
+  initMap(); showTab('map'); renderAll();
+  // Permissions API lets us start GPS silently only if it was granted before.
+  try { if (navigator.permissions){ const p = await navigator.permissions.query({name:'geolocation'}); if (p.state==='granted') startGps(); else if (p.state==='denied') $('#btnSimPos').hidden=false; } } catch { $('#btnSimPos').hidden=false; }
+})();
+</script>
+</body>
+</html>

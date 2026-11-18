@@ -1,0 +1,25 @@
+# NICIODATĂ date reale în acest repository / ALDRIG rigtige data i dette repository
+date-reale/
+data-private/
+migration/
+merged/
+poze_concentratoare/
+*.kmz
+*.kml
+*.kml.xml
+*.xlsx
+*.csv
+!app/data/*.example.csv
+*.private.json
+*.jpg
+*.jpeg
+*.png
+!app/vendor/**
+*.heic
+.env
+.env.*
+!.env.example
+dist/
+__pycache__/
+.DS_Store
+Thumbs.db
