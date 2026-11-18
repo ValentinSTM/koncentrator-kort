@@ -1,0 +1,517 @@
+{
+ "generatedFrom": "Google My Maps export, field ADR (place part), aggregate counts only",
+ "coverage": {
+  "concentrators": 1162,
+  "withPlaceText": 1047,
+  "roomRecognised": 975,
+  "sideRecognised": 93,
+  "heightRecognised": 98,
+  "floorRecognised": 75,
+  "landmarkRecognised": 231,
+  "detailed(room+side or height)": 135,
+  "onlyOneWord": 516
+ },
+ "metaCodesInText": {
+  "ava": 7,
+  "sat_kode": 170,
+  "n_kode": 12
+ },
+ "categories": {
+  "room": [
+   {
+    "key": "loft",
+    "da": "Loft / loftrum",
+    "en": "Loft / attic",
+    "ro": "Pod / mansardă",
+    "pattern": "\\bloft|\\bkip\\b|loftlem|spær|tagetage",
+    "count": 224
+   },
+   {
+    "key": "garage",
+    "da": "Garage",
+    "en": "Garage",
+    "ro": "Garaj",
+    "pattern": "garage",
+    "count": 136
+   },
+   {
+    "key": "carport",
+    "da": "Carport",
+    "en": "Carport",
+    "ro": "Carport",
+    "pattern": "carport",
+    "count": 69
+   },
+   {
+    "key": "skur",
+    "da": "Skur / redskabsrum",
+    "en": "Shed / tool room",
+    "ro": "Magazie / magazie de unelte",
+    "pattern": "skur|redskab|havehus|udhus|øverum",
+    "count": 284
+   },
+   {
+    "key": "cykelskur",
+    "da": "Cykelskur / cykelrum",
+    "en": "Bike shed",
+    "ro": "Magazie / adăpost biciclete",
+    "pattern": "cykel",
+    "count": 26
+   },
+   {
+    "key": "affald",
+    "da": "Skralderum / affaldsrum",
+    "en": "Bin room",
+    "ro": "Cameră deșeuri",
+    "pattern": "skralde|affald|container|renovation",
+    "count": 19
+   },
+   {
+    "key": "teknikrum",
+    "da": "Teknikrum",
+    "en": "Technical room",
+    "ro": "Cameră tehnică",
+    "pattern": "teknikrum|teknikum|teknik rum|teknikskakt|skakt|ventilationsrum|pumperum|boilerrum|varmecentral|varmeveksler",
+    "count": 88
+   },
+   {
+    "key": "teknikskab",
+    "da": "Teknikskab / højskab",
+    "en": "Technical cabinet",
+    "ro": "Dulap tehnic",
+    "pattern": "teknikskab|højskab|el.?skab|fjernvarmeskab|\\bskab",
+    "count": 62
+   },
+   {
+    "key": "kaelder",
+    "da": "Kælder / kælderrum",
+    "en": "Basement",
+    "ro": "Subsol",
+    "pattern": "kælder|kld\\b|nedgang",
+    "count": 57
+   },
+   {
+    "key": "bryggers",
+    "da": "Bryggers",
+    "en": "Utility room",
+    "ro": "Cameră utilitară",
+    "pattern": "bryggers|viktualie",
+    "count": 39
+   },
+   {
+    "key": "vaskerum",
+    "da": "Vaskerum / vaskehus",
+    "en": "Laundry room",
+    "ro": "Spălătorie",
+    "pattern": "vaske",
+    "count": 19
+   },
+   {
+    "key": "depotrum",
+    "da": "Depot- / opbevaringsrum",
+    "en": "Storage room",
+    "ro": "Debara / depozit",
+    "pattern": "depot|opbevaring|barnevognsrum|baglokale",
+    "count": 36
+   },
+   {
+    "key": "vaerksted",
+    "da": "Værksted",
+    "en": "Workshop",
+    "ro": "Atelier",
+    "pattern": "værksted",
+    "count": 35
+   },
+   {
+    "key": "trappeopgang",
+    "da": "Trappeopgang",
+    "en": "Stairwell",
+    "ro": "Casa scării",
+    "pattern": "trappe|opgang",
+    "count": 42
+   },
+   {
+    "key": "faellesrum",
+    "da": "Fælleshus / fællesrum",
+    "en": "Common room / house",
+    "ro": "Spațiu comun",
+    "pattern": "fælles",
+    "count": 22
+   },
+   {
+    "key": "entre",
+    "da": "Entré / gang / indgang",
+    "en": "Entrance / hallway",
+    "ro": "Intrare / hol",
+    "pattern": "entr[eé]|\\bgang\\b|baggang|forgang|indgang|hoveddør|garderobe",
+    "count": 32
+   },
+   {
+    "key": "udvendig",
+    "da": "Udvendig (mur / gavl / mast)",
+    "en": "Outside (wall / gable / mast)",
+    "ro": "Exterior (perete / fronton / stâlp)",
+    "pattern": "udv\\b|udvendig|udenfor|\\bgavl|\\bmast\\b|på taget",
+    "count": 24
+   },
+   {
+    "key": "halvtag",
+    "da": "Halvtag / overdækket / udhæng",
+    "en": "Lean-to / covered area / eaves",
+    "ro": "Șopron / zonă acoperită / streașină",
+    "pattern": "halvtag|overdækket|udhæng",
+    "count": 14
+   },
+   {
+    "key": "lejlighed",
+    "da": "I lejlighed / bolig",
+    "en": "Inside a flat / home",
+    "ro": "În apartament / locuință",
+    "pattern": "lejlighed|bolig",
+    "count": 10
+   },
+   {
+    "key": "anlaeg_bygning",
+    "da": "Eget anlæg (Kredsløb/AVA: bygværk, pumperum, station)",
+    "en": "Own site (Kredsløb/AVA: plant, pump room, station)",
+    "ro": "Instalație proprie (Kredsløb/AVA: clădire tehnică, cameră pompe, stație)",
+    "pattern": "(affald ?varme|affalvarme|\\\\bava)[ -]*(anlæg|bygværk|bygning|byg\\\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\\\s*)anlæg \\\\d|kredsløb",
+    "count": 9
+   },
+   {
+    "key": "kontor",
+    "da": "Kontor / viceværtsrum",
+    "en": "Office / caretaker room",
+    "ro": "Birou / cameră administrator",
+    "pattern": "kontor|vicevært(s|kontor)?$|tavlerum|rengøringsrum|opholdsrum|klublokal|lokalcenter",
+    "count": 16
+   }
+  ],
+  "side": [
+   {
+    "key": "venstre",
+    "da": "Til venstre",
+    "en": "On the left",
+    "ro": "În stânga",
+    "pattern": "venstre",
+    "count": 45
+   },
+   {
+    "key": "hoejre",
+    "da": "Til højre",
+    "en": "On the right",
+    "ro": "În dreapta",
+    "pattern": "højre",
+    "count": 22
+   },
+   {
+    "key": "lige_frem",
+    "da": "Lige frem",
+    "en": "Straight ahead",
+    "ro": "Drept înainte",
+    "pattern": "lige frem",
+    "count": 2
+   },
+   {
+    "key": "inden_for_doer",
+    "da": "Inden for døren",
+    "en": "Just inside the door",
+    "ro": "Imediat după ușă",
+    "pattern": "inden ?for (døren|porten)",
+    "count": 33
+   },
+   {
+    "key": "over_doer",
+    "da": "Over døren",
+    "en": "Above the door",
+    "ro": "Deasupra ușii",
+    "pattern": "over (døren|porten|hoveddør)",
+    "count": 10
+   },
+   {
+    "key": "bag_doer",
+    "da": "Bag døren",
+    "en": "Behind the door",
+    "ro": "În spatele ușii",
+    "pattern": "bag (døren|porten)",
+    "count": 0
+   },
+   {
+    "key": "under_trappe",
+    "da": "Under trappen",
+    "en": "Under the stairs",
+    "ro": "Sub scară",
+    "pattern": "under trappe",
+    "count": 3
+   },
+   {
+    "key": "ved_siden_af",
+    "da": "Ved siden af …",
+    "en": "Next to …",
+    "ro": "Lângă …",
+    "pattern": "ved siden af",
+    "count": 6
+   },
+   {
+    "key": "hjoerne",
+    "da": "I hjørnet",
+    "en": "In the corner",
+    "ro": "În colț",
+    "pattern": "hjørne",
+    "count": 7
+   }
+  ],
+  "height": [
+   {
+    "key": "under_loft",
+    "da": "Oppe under loftet",
+    "en": "Up under the ceiling",
+    "ro": "Sus, sub tavan",
+    "pattern": "under (loft|taget)|oppe",
+    "count": 91
+   },
+   {
+    "key": "paa_spaer",
+    "da": "På et spær / i kip",
+    "en": "On a rafter / at the ridge",
+    "ro": "Pe o căprior / la coamă",
+    "pattern": "spær|\\bkip\\b",
+    "count": 21
+   },
+   {
+    "key": "oejenhoejde",
+    "da": "I øjenhøjde",
+    "en": "At eye level",
+    "ro": "La nivelul ochilor",
+    "pattern": "øjenhøjde",
+    "count": 0
+   },
+   {
+    "key": "gulv",
+    "da": "Ved gulvet",
+    "en": "Near the floor",
+    "ro": "Jos, lângă podea",
+    "pattern": "ved gulv|nede",
+    "count": 0
+   }
+  ],
+  "floor": [
+   {
+    "key": "kaelder_etage",
+    "da": "Kælderetage",
+    "en": "Basement level",
+    "ro": "Nivel subsol",
+    "pattern": "kælder",
+    "count": 57
+   },
+   {
+    "key": "stue",
+    "da": "Stueetage",
+    "en": "Ground floor",
+    "ro": "Parter",
+    "pattern": "stue ?etage|\\bstuen\\b",
+    "count": 1
+   },
+   {
+    "key": "sal1",
+    "da": "1. sal",
+    "en": "1st floor",
+    "ro": "Etajul 1",
+    "pattern": "\\b1\\.? ?sal",
+    "count": 9
+   },
+   {
+    "key": "sal2",
+    "da": "2. sal",
+    "en": "2nd floor",
+    "ro": "Etajul 2",
+    "pattern": "\\b2\\.? ?sal",
+    "count": 7
+   },
+   {
+    "key": "oeverste",
+    "da": "Øverste etage",
+    "en": "Top floor",
+    "ro": "Ultimul etaj",
+    "pattern": "øverste",
+    "count": 1
+   }
+  ],
+  "landmark": [
+   {
+    "key": "gruppetavle",
+    "da": "Gruppetavle / el-tavle",
+    "en": "Fuse board",
+    "ro": "Tablou electric",
+    "pattern": "tavle",
+    "count": 26
+   },
+   {
+    "key": "varme",
+    "da": "Varmeinstallation / varmemåler",
+    "en": "Heating installation / heat meter",
+    "ro": "Instalație termică / contor căldură",
+    "pattern": "varme",
+    "count": 24
+   },
+   {
+    "key": "loftlem",
+    "da": "Loftlem",
+    "en": "Loft hatch",
+    "ro": "Trapă pod",
+    "pattern": "loftlem",
+    "count": 16
+   },
+   {
+    "key": "vindue",
+    "da": "Vindue",
+    "en": "Window",
+    "ro": "Fereastră",
+    "pattern": "vindue",
+    "count": 13
+   },
+   {
+    "key": "doer",
+    "da": "Dør / port",
+    "en": "Door / gate",
+    "ro": "Ușă / poartă",
+    "pattern": "dør|port",
+    "count": 129
+   },
+   {
+    "key": "trappe",
+    "da": "Trappe",
+    "en": "Stairs",
+    "ro": "Scară",
+    "pattern": "trappe",
+    "count": 31
+   },
+   {
+    "key": "elevator",
+    "da": "Elevator",
+    "en": "Lift",
+    "ro": "Lift",
+    "pattern": "elevator",
+    "count": 2
+   }
+  ],
+  "antenna": [
+   {
+    "key": "ant_udvendig",
+    "da": "Antenne udvendig",
+    "en": "External antenna",
+    "ro": "Antenă exterioară",
+    "pattern": "antenne\\w* (er )?(blevet )?(flyttet )?(udv|udenfor|oppe på taget)|antenne udv|værksted antenne",
+    "count": 13
+   },
+   {
+    "key": "ant_mast",
+    "da": "Antenne på mast",
+    "en": "Antenna on mast",
+    "ro": "Antenă pe stâlp",
+    "pattern": "mast",
+    "count": 2
+   },
+   {
+    "key": "ant_tag",
+    "da": "Antenne på tag / skorsten",
+    "en": "Antenna on roof / chimney",
+    "ro": "Antenă pe acoperiș / coș",
+    "pattern": "på taget|skorsten",
+    "count": 1
+   },
+   {
+    "key": "ant_vindue",
+    "da": "Antenne peger ud af vindue",
+    "en": "Antenna points out of window",
+    "ro": "Antena iese pe fereastră",
+    "pattern": "(antenne\\w*).{0,30}vindue|peger ud af vinduet",
+    "count": 7
+   },
+   {
+    "key": "ant_retning",
+    "da": "Antenne peger mod …",
+    "en": "Antenna points towards …",
+    "ro": "Antena e orientată spre …",
+    "pattern": "peger",
+    "count": 9
+   }
+  ],
+  "access": [
+   {
+    "key": "vicevaert",
+    "da": "Kontakt vicevært / varmemester",
+    "en": "Contact caretaker",
+    "ro": "Contact administrator / fochist",
+    "pattern": "vicevært|varmemester|pedel",
+    "count": 22
+   },
+   {
+    "key": "noegle",
+    "da": "Nøgle / nøgleboks",
+    "en": "Key / key box",
+    "ro": "Cheie / cutie chei",
+    "pattern": "nøgle|key ?box",
+    "count": 2
+   },
+   {
+    "key": "kode",
+    "da": "Kode",
+    "en": "Code",
+    "ro": "Cod",
+    "pattern": "\\bkode",
+    "count": 2
+   },
+   {
+    "key": "kontaktperson",
+    "da": "Kontaktperson (navn / tlf.)",
+    "en": "Contact person (name / phone)",
+    "ro": "Persoană de contact (nume / tel.)",
+    "pattern": "kontakt|spørg efter|telefonnummer|\\b\\d{8}\\b",
+    "count": 4
+   },
+   {
+    "key": "eget_anlaeg",
+    "da": "Eget anlæg – ingen aftale nødvendig",
+    "en": "Own site – no appointment needed",
+    "ro": "Instalație proprie – nu e nevoie de programare",
+    "pattern": "(affald ?varme|affalvarme|\\\\bava)[ -]*(anlæg|bygværk|bygning|byg\\\\.|skab)|fjernvarme ?(station|bygværk)|varmeveksler ?station|pumperum|afspærringsanlæg|bygværk|(^|[;:,]\\\\s*)anlæg \\\\d|kredsløb",
+    "count": 18
+   },
+   {
+    "key": "institution",
+    "da": "Institution (børnehave, skole, plejehjem …)",
+    "en": "Institution (kindergarten, school, care home …)",
+    "ro": "Instituție (grădiniță, școală, cămin …)",
+    "pattern": "børnehave|børnehus|dagtilbud|skole|plejehjem|hal\\b|gym",
+    "count": 23
+   }
+  ],
+  "status": [
+   {
+    "key": "ukendt",
+    "da": "Placering ukendt",
+    "en": "Location unknown",
+    "ro": "Poziție necunoscută",
+    "pattern": "ukendt|usikker",
+    "count": 45
+   },
+   {
+    "key": "flyttet",
+    "da": "Flyttet / udskiftet",
+    "en": "Moved / replaced",
+    "ro": "Mutat / înlocuit",
+    "pattern": "flyttet|udskift|ny koncentrator|gl\\.? ?kon|tidligere",
+    "count": 20
+   },
+   {
+    "key": "gps_afvigelse",
+    "da": "Adresse ≠ GPS-position",
+    "en": "Address ≠ GPS position",
+    "ro": "Adresa ≠ poziția GPS",
+    "pattern": "kordinat|koordinat|gps|adressen|udfra",
+    "count": 3
+   }
+  ]
+ }
+}
