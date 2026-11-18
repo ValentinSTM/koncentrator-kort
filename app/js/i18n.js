@@ -2,7 +2,7 @@
 'use strict';
 window.I18N = {
   da: {
-    appTitle:'Koncentrator-kort', srcDemo:'DEMO', srcLocal:'LOKALE DATA', searchPh:'Søg ID, adresse, postnr., sted…',
+    appTitle:'Koncentrator-kort', posTitle:'Min position', posGps:'Brug telefonens / PC\'ens GPS', posMap:'Vælg på kortet', posAddr:'Skriv en adresse', posAddrPh:'Fx Langørvej 57 eller Viby 8260', posCoordHint:'Du kan også skrive koordinater, fx 56.1838, 10.1119', posNoMatch:'Ingen adresse fundet i data. Prøv gadenavn + nummer, eller vælg på kortet.', posSet:'Position sat: {p}', posFromData:'Adresserne søges kun i de indlæste data – intet sendes på internettet.', posManual:'Manuel position', posChange:'Ændr', posManualVerify:'Din position er sat manuelt, ikke målt med GPS. Den gemmes som «placeret manuelt», ikke som GPS-måling.', cs_manual:'Placeret manuelt på kort', posTapMap:'Tryk på kortet, hvor du står', srcDemo:'DEMO', srcLocal:'LOKALE DATA', searchPh:'Søg ID, adresse, postnr., sted…',
     tabMap:'Kort', tabList:'Liste', tabMore:'Mere', filter:'Filter',
     nearest:'Nærmest dig', showNearest:'Vis nærmeste koncentratorer', gpsWait:'Finder din position…',
     gpsDenied:'GPS ikke tilgængelig. Tryk 🎯 og derefter på kortet for at vælge din position.', simTap:'Tryk på kortet, hvor du står',
@@ -48,7 +48,7 @@ window.I18N = {
     dirs:['N','NØ','Ø','SØ','S','SV','V','NV']
   },
   en: {
-    appTitle:'Concentrator map', srcDemo:'DEMO', srcLocal:'LOCAL DATA', searchPh:'Search ID, address, postcode, place…',
+    appTitle:'Concentrator map', posTitle:'My position', posGps:'Use the phone / PC GPS', posMap:'Pick on the map', posAddr:'Type an address', posAddrPh:'E.g. Langørvej 57 or Viby 8260', posCoordHint:'You can also type coordinates, e.g. 56.1838, 10.1119', posNoMatch:'No address found in the data. Try street + number, or pick on the map.', posSet:'Position set: {p}', posFromData:'Addresses are searched only in the loaded data – nothing is sent over the internet.', posManual:'Manual position', posChange:'Change', posManualVerify:'Your position was set manually, not measured by GPS. It is saved as «placed manually», not as a GPS measurement.', cs_manual:'Placed manually on the map', posTapMap:'Tap the map where you are', srcDemo:'DEMO', srcLocal:'LOCAL DATA', searchPh:'Search ID, address, postcode, place…',
     tabMap:'Map', tabList:'List', tabMore:'More', filter:'Filter',
     nearest:'Nearest to you', showNearest:'Show nearest concentrators', gpsWait:'Finding your position…',
     gpsDenied:'GPS not available. Tap 🎯 and then the map to choose your position.', simTap:'Tap the map where you are',
@@ -94,7 +94,7 @@ window.I18N = {
     dirs:['N','NE','E','SE','S','SW','W','NW']
   },
   ro: {
-    appTitle:'Harta concentratoarelor', srcDemo:'DEMO', srcLocal:'DATE LOCALE', searchPh:'Caută ID, adresă, cod poștal, loc…',
+    appTitle:'Harta concentratoarelor', posTitle:'Poziția mea', posGps:'Folosește GPS-ul telefonului / PC-ului', posMap:'Alege pe hartă', posAddr:'Scrie o adresă', posAddrPh:'Ex. Langørvej 57 sau Viby 8260', posCoordHint:'Poți scrie și coordonate, ex. 56.1838, 10.1119', posNoMatch:'Nicio adresă găsită în date. Încearcă stradă + număr sau alege pe hartă.', posSet:'Poziție setată: {p}', posFromData:'Adresele se caută doar în datele încărcate – nimic nu se trimite pe internet.', posManual:'Poziție manuală', posChange:'Schimbă', posManualVerify:'Poziția ta e setată manual, nu măsurată cu GPS. Se salvează ca «plasată manual», nu ca măsurare GPS.', cs_manual:'Plasat manual pe hartă', posTapMap:'Apasă pe hartă unde te afli', srcDemo:'DEMO', srcLocal:'DATE LOCALE', searchPh:'Caută ID, adresă, cod poștal, loc…',
     tabMap:'Hartă', tabList:'Listă', tabMore:'Mai mult', filter:'Filtru',
     nearest:'Cele mai apropiate', showNearest:'Arată cele mai apropiate concentratoare', gpsWait:'Se caută poziția…',
     gpsDenied:'GPS indisponibil. Apasă 🎯 și apoi pe hartă ca să alegi poziția.', simTap:'Apasă pe hartă unde te afli',

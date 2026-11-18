@@ -66,7 +66,7 @@
       kind: 'c', id: c.concentratorId,
       placement: ch.placement || c.placement || {},
       lat: v ? v.lat : c.latitude, lng: v ? v.lng : c.longitude,
-      coordSource: v ? 'gps' : (c.coordinateSource || (c.latitude != null ? 'ready' : 'none')),
+      coordSource: v ? (v.source === 'manual' ? 'manual' : 'gps') : (c.coordinateSource || (c.latitude != null ? 'ready' : 'none')),
       status: ch.status || c.operationalStatus || 'Active',
       verified: v || null,
       photos: [...(c.photos || []).map(p => ({ base: true, file: p.file, demo: p.demo })), ...(ch.photos || []).map(p => ({ base: false, pid: p.pid, caption: p.caption, at: p.at, by: p.by }))],
@@ -141,7 +141,7 @@
       .on('tileload', () => ok++).on('tileerror', () => { bad++; if (bad > 3 && !ok) { $('#map').classList.add('notiles'); const n = $('#mapNote'); n.textContent = t('tilesBlocked'); n.hidden = false; setTimeout(() => (n.hidden = true), 9000); } })
       .addTo(map);
     layerC = L.layerGroup().addTo(map); layerS = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
-    map.on('click', (e) => { if (S.sim) { S.sim = false; setMe({ lat: e.latlng.lat, lng: e.latlng.lng, acc: 5, simulated: true }); } });
+    map.on('click', (e) => { if (S.sim) { S.sim = false; setManual(e.latlng.lat, e.latlng.lng, t('posMap')); } });
     map.on('dragstart', () => { if (S.follow) { S.follow = false; $('#btnLocate').classList.remove('on'); } });
   }
   function renderMarkers() {
@@ -181,11 +181,57 @@
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       let first = true;
       watchId = navigator.geolocation.watchPosition((p) => {
-        setMe({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy), simulated: false }, first); first = false;
+        S.manual = false; setMe({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy), simulated: false }, first); first = false;
       }, gpsFail, { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
     } catch { gpsFail(); }
   }
-  function gpsFail() { $('#btnSim').hidden = false; if (!S.me) toast(t('gpsDenied')); renderNear(); }
+  function gpsFail() { if (watchId != null) { try { navigator.geolocation.clearWatch(watchId); } catch {} watchId = null; }
+    $('#toast').classList.remove('show');
+    if (!S.me && !S.gpsFailShown) { S.gpsFailShown = true; positionSheet(); } renderNear(); }
+  function setManual(lat, lng, lbl) {
+    if (watchId != null) { try { navigator.geolocation.clearWatch(watchId); } catch {} watchId = null; }
+    S.manual = true; setMe({ lat, lng, acc: 5, simulated: true, label: lbl || '' }, true);
+    Data.kvSet('lastManualPos', { lat, lng, label: lbl || '', at: new Date().toISOString() });
+    toast(t('posSet', { p: lbl || (lat.toFixed(5) + ', ' + lng.toFixed(5)) }));
+  }
+  function addressIndex() {
+    if (S.addrIdx && S.addrIdx.ds === S.ds) return S.addrIdx.list;
+    const seen = new Map();
+    const add = (addr, pc, city, lat, lng) => {
+      if (!addr || lat == null) return; const lbl = [addr, [pc, city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      const k = lbl.toLowerCase(); if (!seen.has(k)) seen.set(k, { label: lbl, lat, lng, norm: k.replace(/[.,;:]/g, ' ').replace(/\s+/g, ' ') });
+    };
+    for (const c of S.ds.concentrators) add(c.referenceAddress, c.postalCode, c.city, c.latitude, c.longitude);
+    for (const s of S.ds.sites) add(s.address, '', '', s.latitude, s.longitude);
+    const list = [...seen.values()].sort((a, b) => a.label.localeCompare(b.label, 'da', { numeric: true }));
+    S.addrIdx = { ds: S.ds, list }; return list;
+  }
+  function positionSheet() {
+    openSheet({ title: t('posTitle'),
+      body: `${S.me && S.manual ? `<div class="alert info"><span class="ic">📌</span><span>${esc(t('posManual'))}: ${esc(S.me.label || (S.me.lat.toFixed(5) + ', ' + S.me.lng.toFixed(5)))}</span></div>` : ''}
+        <button class="btn primary big" data-act="posMap">🗺️ ${esc(t('posMap'))}</button>
+        <div class="grp"><h3>🔎 ${esc(t('posAddr'))}</h3><input class="f" id="posQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="${esc(t('posAddrPh'))}">
+          <div class="muted" style="margin-top:6px">${esc(t('posCoordHint'))}</div><div id="posRes" class="list" style="margin-top:8px"></div>
+          <div class="muted" style="margin-top:6px">${esc(t('posFromData'))}</div></div>
+        ${'geolocation' in navigator ? `<button class="btn outline" data-act="posGps">📍 ${esc(t('posGps'))}</button>` : ''}`,
+      onMount: (sh) => {
+        const q = $('#posQ', sh), res = $('#posRes', sh);
+        const run = () => {
+          const v = q.value.trim(); res.innerHTML = '';
+          if (!v) return;
+          const m = v.match(/^\s*(-?\d{1,2}[.,]\d+)\s*[,; ]\s*(-?\d{1,3}[.,]\d+)\s*$/);
+          if (m) { const la = +m[1].replace(',', '.'), lo = +m[2].replace(',', '.');
+            res.innerHTML = `<button class="item" data-setpos="${la},${lo}" data-lbl="${esc(la.toFixed(5) + ', ' + lo.toFixed(5))}"><span class="th">📌</span><span class="main"><span class="t1">${esc(la.toFixed(5) + ', ' + lo.toFixed(5))}</span></span></button>`; return; }
+          const words = v.toLowerCase().replace(/[.,;:]/g, ' ').split(/\s+/).filter(Boolean);
+          const hits = addressIndex().filter(a => words.every(w => a.norm.includes(w))).slice(0, 8);
+          res.innerHTML = hits.length ? hits.map(a => `<button class="item" data-setpos="${a.lat},${a.lng}" data-lbl="${esc(a.label)}" style="min-height:56px"><span class="th" style="width:40px;height:40px;font-size:20px">📍</span><span class="main"><span class="t1" style="font-size:16px">${esc(a.label)}</span></span></button>`).join('')
+            : `<div class="muted">${esc(t('posNoMatch'))}</div>`;
+        };
+        let tm; q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(run, 150); });
+        q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { run(); const first = $('[data-setpos]', res); if (first) first.click(); } });
+        setTimeout(() => q.focus(), 80);
+      } });
+  }
   let lastFullRender = 0;
   function setMe(me, center) {
     const moved = !S.me || hav(S.me, me) > 15;
@@ -196,7 +242,7 @@
       meCircle = L.circle(ll, { radius: me.acc, color: '#1565c0', weight: 1, fillOpacity: .08 }).addTo(map);
     }
     meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(me.acc);
-    meMarker.bindTooltip(t('youAreHere', { a: me.acc }) + (me.simulated ? ' · ' + t('simulated') : ''));
+    meMarker.bindTooltip(me.simulated ? '📌 ' + t('posManual') + (me.label ? ': ' + me.label : '') : t('youAreHere', { a: me.acc }));
     if (center || S.follow) map.setView(ll, Math.max(map.getZoom(), 16), { animate: !center });
     updateCompass(); drawLine();
     const now = Date.now();
@@ -268,9 +314,9 @@
   }
   function renderNear() {
     const el = $('#nearSheet');
-    if (!S.me) { el.innerHTML = `<button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button>`; return; }
+    if (!S.me) { el.innerHTML = `<div class="row"><button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button><button class="btn outline big" data-act="sim" style="flex:.45" aria-label="${esc(t('posTitle'))}">📌</button></div>`; return; }
     const r = filtered().filter(x => x.kind === 'c' && x.status === 'Active' && x.lat != null).slice(0, 2);
-    el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}</span><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button></div><div class="list">${r.map(itemHtml).join('')}</div>`;
+    el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button></div><div class="list">${r.map(itemHtml).join('')}</div>`;
     hydrate(el);
   }
   function renderList() {
@@ -315,7 +361,7 @@
     const p = r.placement, room = p.room && p.room[0], sent = sentence(p);
     const ph = r.photos;
     const statusCls = r.status === 'Active' ? 'b-ok' : 'b-warn';
-    const cs = { gps: 'cs_gps', ready: 'cs_ready', mymaps: 'cs_mymaps', kml_point: 'cs_mymaps', address_field: 'cs_mymaps', Adr_field: 'cs_mymaps', unnamed1_field: 'cs_mymaps' }[r.coordSource] || 'cs_none';
+    const cs = { gps: 'cs_gps', manual: 'cs_manual', ready: 'cs_ready', mymaps: 'cs_mymaps', kml_point: 'cs_mymaps', address_field: 'cs_mymaps', Adr_field: 'cs_mymaps', unnamed1_field: 'cs_mymaps' }[r.coordSource] || 'cs_none';
     const checks = [['gps', 'ck_gps'], ['room', 'ck_room'], ['detail', 'ck_detail'], ['photo', 'ck_photo']];
     const nearSite = r.nearSite && S.ds.sites.find(s => s.siteId === r.nearSite);
     w.innerHTML = `
@@ -447,6 +493,7 @@
         ${e.verified ? `<div class="alert ok"><span class="ic">✓</span><span>${esc(t('posAlready', { t: fmtDate(e.verified.at, true) }))}</span></div>` : ''}
         ${me ? `<div class="card" style="text-align:center"><div class="mono" style="font-size:18px">${me.lat.toFixed(6)}, ${me.lng.toFixed(6)}</div>
           <div class="${me.acc > 25 ? '' : 'muted'}" style="margin-top:4px;font-weight:700;color:${me.acc > 25 ? '#8a5a00' : ''}">${esc(me.acc > 25 ? t('gpsBad', { a: me.acc }) : t('gpsAcc', { a: me.acc }))}${me.simulated ? ' · ' + esc(t('simulated')) : ''}</div></div>
+          ${me.simulated ? `<div class="alert warn"><span class="ic">📌</span><span>${esc(t('posManualVerify'))}</span></div>` : ''}
           <button class="btn go big" data-act="wzHere">📍 ${esc(t('iAmHere'))}</button>`
         : `<div class="alert warn"><span class="ic">📍</span><span>${esc(t('gpsNeeded'))}</span></div><button class="btn primary" data-act="locate">📍 ${esc(t('showNearest'))}</button>`}`;
       foot = `<button class="btn ghost" data-act="wzNext">${esc(t('skip'))} ›</button>`;
@@ -603,7 +650,8 @@
   async function copy(txt) { try { await navigator.clipboard.writeText(txt); toast(t('copied')); } catch { toast(txt); } }
 
   document.addEventListener('click', async (ev) => {
-    const el = ev.target.closest('[data-act],[data-open],[data-tab],[data-photo],[data-copy],[data-wcat],[data-wmore],[data-lang]'); if (!el) return;
+    const el = ev.target.closest('[data-act],[data-open],[data-tab],[data-photo],[data-copy],[data-wcat],[data-wmore],[data-lang],[data-setpos]'); if (!el) return;
+    if (el.dataset.setpos) { const [la, lo] = el.dataset.setpos.split(',').map(Number); closeSheet(); setTab('map'); setManual(la, lo, el.dataset.lbl || ''); return; }
     if (el.dataset.lang) { S.lang = el.dataset.lang; S.prefs.lang = S.lang; Data.kvSet('prefs', S.prefs); applyI18n(); renderAll(); if (!$('#v-more').hidden) renderMore(); if (S.wz) renderWizard(); return; }
     if (el.dataset.tab) { closeSheet(); setTab(el.dataset.tab); return; }
     if (el.dataset.open) { closeSheet(); const [ty, ...rest] = el.dataset.open.split(':'); openDetail(ty, rest.join(':')); return; }
@@ -620,8 +668,10 @@
     switch (el.dataset.act) {
       case 'closeSheet': if (S.wz) await wzSavePlacement(); closeSheet(); break;
       case 'back': S.detail = null; lineLayer.clearLayers(); showView(S.prevTab === 'list' || wide() ? (wide() ? 'map' : 'list') : 'map'); if (!$('#v-list').hidden) renderList(); renderMarkers(); break;
-      case 'locate': closeSheet(); if (S.me) { S.follow = !S.follow; $('#btnLocate').classList.toggle('on', S.follow); map.setView([S.me.lat, S.me.lng], Math.max(map.getZoom(), 16)); } else startGps(); startCompass(true); break;
-      case 'sim': S.sim = true; toast(t('simTap')); setTab('map'); break;
+      case 'locate': closeSheet(); if (S.me && S.manual) { positionSheet(); break; } if (S.me) { S.follow = !S.follow; $('#btnLocate').classList.toggle('on', S.follow); map.setView([S.me.lat, S.me.lng], Math.max(map.getZoom(), 16)); } else startGps(); startCompass(true); break;
+      case 'sim': positionSheet(); break;
+      case 'posMap': closeSheet(); S.sim = true; setTab('map'); toast(t('posTapMap')); break;
+      case 'posGps': closeSheet(); S.gpsFailShown = true; startGps(); break;
       case 'compass': startCompass(true); break;
       case 'filter': filterSheet(); break;
       case 'clearFilters': S.filters.info.clear(); S.filters.tech = new Set(['radiomesh', 'linkiq']); S.q = ''; $('#q').value = ''; closeSheet(); renderAll(); break;
@@ -634,7 +684,7 @@
       case 'saveReport': { const k = ($('[data-rp][aria-pressed="true"]') || {}).dataset.rp || 'other'; const txt = $('#rpTxt').value.trim();
         const ch = chFor(r.id); if (k === 'notfound' || k === 'gone') ch.status = 'RequiresVerification';
         closeSheet(); await commit(r.id, 'report', t('rp_' + k) + (txt ? ': ' + txt : '')); toast(t('reportSaved')); break; }
-      case 'wzHere': { const wz = S.wz, me = S.me; if (!me) return; chFor(wz.id).verified = { lat: +me.lat.toFixed(6), lng: +me.lng.toFixed(6), acc: me.acc, at: new Date().toISOString(), by: S.prefs.name || '', simulated: !!me.simulated };
+      case 'wzHere': { const wz = S.wz, me = S.me; if (!me) return; chFor(wz.id).verified = { lat: +me.lat.toFixed(6), lng: +me.lng.toFixed(6), acc: me.acc, at: new Date().toISOString(), by: S.prefs.name || '', simulated: !!me.simulated, source: me.simulated ? 'manual' : 'gps' };
         await commit(wz.id, 'verify', '±' + me.acc + ' m'); toast(t('posSaved')); wz.step = 2; renderWizard(); break; }
       case 'wzNext': if (S.wz.step === 2) { if (!(S.wz.placement.room || []).length && S.wz.dirty) { toast(t('nothingChosen')); return; } await wzSavePlacement(); }
         S.wz.step = Math.min(3, S.wz.step + 1); if (S.wz.step === 3) S.wz.startedAt = S.wz.startedAt || new Date(Date.now() - 1000).toISOString(); renderWizard(); break;
@@ -673,6 +723,9 @@
     initMap();
     const { mode, ds } = await Data.loadActive();
     await activate(mode, ds); setTab('map'); fitData();
-    try { if (navigator.permissions) { const p = await navigator.permissions.query({ name: 'geolocation' }); if (p.state === 'granted') startGps(); else if (p.state === 'denied') $('#btnSim').hidden = false; } } catch { $('#btnSim').hidden = false; }
+    let granted = false;
+    try { if (navigator.permissions) { const p = await navigator.permissions.query({ name: 'geolocation' }); granted = p.state === 'granted'; if (p.state === 'denied') S.gpsFailShown = true; } } catch {}
+    if (granted) startGps();
+    else { const last = await Data.kvGet('lastManualPos'); if (last && typeof last.lat === 'number') { S.manual = true; setMe({ lat: last.lat, lng: last.lng, acc: 5, simulated: true, label: last.label || '' }, true); } }
   })();
 })();
