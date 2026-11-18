@@ -42,12 +42,13 @@ Datele de contact ale persoanelor (nume, telefoane) **nu** se urcă; rămân doa
 2. **Mere → Indlæs rigtige data**: `koncentrator-data.json` și folderul `poze_concentratoare` (dacă nu le-ai încărcat deja).
 3. **Mere → Fælles lager**: lipește *Web app URL*, scrie **codul biroului** → **Forbind** → scrie-ți numele.
 4. **Upload data og fotos (kontor)**. Durează 1–2 minute (1.207 concentratoare + 49 de fotografii).
-5. La *Montør-kode* scrie **codul montatorilor** → **Kopiér opsætningslink til montører**.
-6. Trimite linkul montatorilor (Teams sau SMS).
+5. La *Montør-kode* scrie **codul montatorilor**, apoi:
+   - **▦ Vis QR-kode** → montatorul scanează codul de pe ecranul PC-ului cu camera telefonului (merge și când politica firmei nu permite copierea linkurilor din Teams), sau
+   - **🔗 Kopiér link** → trimiți linkul pe SMS / mail, unde se poate deschide direct.
 
 ## Pe telefonul montatorului
 
-1. Deschide linkul primit → aplicația se configurează singură și încarcă datele.
+1. Scanează codul QR (sau deschide linkul) → aplicația se deschide în browserul telefonului, se configurează singură și încarcă datele.
 2. Își scrie numele (apare în istoric la modificările lui).
 3. Meniu browser → **Add to Home screen**.
 

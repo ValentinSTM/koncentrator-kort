@@ -180,3 +180,8 @@ textarea.f{min-height:96px;resize:vertical}
   nav.tabs .t-map{display:none}
   #nearSheet{display:none}
 }
+
+#nearSheet.collapsed{left:auto;right:12px;bottom:30px;width:auto;padding:0;background:transparent;box-shadow:none}
+#nearSheet.collapsed .pill{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:99px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);min-height:52px;padding:8px 16px;font-weight:800;font-size:16px;cursor:pointer}
+.qrbox{background:#fff;border-radius:14px;padding:12px;display:flex;justify-content:center}
+.qrbox svg{width:100%;max-width:320px;height:auto;display:block}

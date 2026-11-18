@@ -254,6 +254,7 @@
     meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(me.acc);
     meMarker.bindTooltip(me.simulated ? '📌 ' + t('posManual') + (me.label ? ': ' + me.label : '') : t('youAreHere', { a: me.acc }));
     if (center || S.follow) map.setView(ll, Math.max(map.getZoom(), 16), { animate: !center });
+    if (center) $('#toast').classList.remove('show');
     updateCompass(); drawLine();
     const now = Date.now();
     if (moved || now - lastFullRender > 20000) { lastFullRender = now; renderNear(); if (!$('#v-list').hidden) renderList(); }
@@ -325,9 +326,14 @@
   function renderNear() {
     const el = $('#nearSheet');
     if (!S.me) { el.innerHTML = `<div class="row"><button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button><button class="btn outline big" data-act="sim" style="flex:.45" aria-label="${esc(t('posTitle'))}">📌</button></div>`; return; }
+    el.classList.remove('collapsed');
     if (sharedEmptyHtml()) { el.innerHTML = sharedEmptyHtml(); return; }
     const r = filtered().filter(x => x.kind === 'c' && x.status === 'Active' && x.lat != null).slice(0, 2);
-    el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button></div><div class="list">${r.map(itemHtml).join('')}</div>`;
+    if (S.prefs.nearCollapsed) {
+      el.classList.add('collapsed');
+      el.innerHTML = `<button class="pill" data-act="toggleNear" aria-label="${esc(t('nearest'))}">▴ ${esc(t('nearest'))}${r[0] ? ' · ' + fmtDist(hav(S.me, r[0])) : ''}</button>`; return;
+    }
+    el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><span style="display:flex;gap:6px"><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button><button class="btn small ghost" data-act="toggleNear" aria-label="${esc(t('hideNear'))}" style="min-width:44px">▾</button></span></div><div class="list">${r.map(itemHtml).join('')}</div>`;
     hydrate(el);
   }
   function sharedEmptyHtml() {
@@ -487,6 +493,14 @@
         if (!f.tech.size) f.tech.add(v === 'radiomesh' ? 'linkiq' : 'radiomesh');
         $$('[data-fgrp]', sh).forEach(x => x.setAttribute('aria-pressed', f[x.dataset.fgrp].has(x.dataset.fval))); renderAll();
       }) });
+  }
+  function qrSheet(text, secret) {
+    let svg = '';
+    try { const q = qrcode(0, 'M'); q.addData(text); q.make(); svg = q.createSvgTag({ cellSize: 6, margin: 3, scalable: true }); } catch { svg = ''; }
+    openSheet({ title: secret ? t('qrSetupTitle') : t('qrAppTitle'),
+      body: `<div class="qrbox">${svg || esc(text)}</div><p style="margin:0">${esc(secret ? t('qrSetupHint') : t('qrAppHint'))}</p>
+        ${secret ? `<div class="alert warn"><span class="ic">🔒</span><span>${esc(t('linkHint'))}</span></div>` : ''}`,
+      foot: `<button class="btn ghost" data-act="closeSheet">${esc(t('close'))}</button>` });
   }
   function nameSheet() {
     openSheet({ title: t('yourName'), body: `<p style="margin:0">${esc(t('askName'))}</p><input class="f" id="nameIn" maxlength="60" autocomplete="name">`,
@@ -721,7 +735,7 @@
         ${S.mode === 'local' ? `<button class="btn ghost" data-act="useDemo" style="margin-top:12px">${esc(t('useDemo'))}</button>
           <button class="btn danger" data-act="forget" style="margin-top:8px">${esc(t('forget'))}</button>` : ''}</div>
       <div class="card"><h2>${esc(t('yourName'))}</h2><input class="f" id="myName" maxlength="60" value="${esc(S.prefs.name)}" autocomplete="name"></div>
-      <div class="card"><h2>${esc(t('about'))}</h2><p style="margin:0 0 6px">${esc(t('aboutDemo'))}</p><p class="muted" style="margin:0">${esc(t('aboutPrivacy'))}</p></div>`;
+      <div class="card"><h2>${esc(t('about'))}</h2><button class="btn outline" data-act="showQr" data-qr="app" style="margin-bottom:10px">▦ ${esc(t('qrAppTitle'))}</button><p style="margin:0 0 6px">${esc(t('aboutDemo'))}</p><p class="muted" style="margin:0">${esc(t('aboutPrivacy'))}</p></div>`;
     $('#myName').onchange = async (e) => { S.prefs.name = e.target.value.trim(); await Data.kvSet('prefs', S.prefs); toast(t('saved')); };
   }
   function sharedCard() {
@@ -735,7 +749,7 @@
         <span class="muted">${esc(t('syncLast', { t: S.sync.lastOk ? fmtDate(S.sync.lastOk, true) : t('never2') }))}${pending ? ' · ' + esc(t('syncPending', { n: pending })) : ''}</span></span></div>
       <button class="btn primary" data-act="syncNow" style="margin-top:10px" ${S.sync.busy ? 'disabled' : ''}>⟳ ${esc(t('syncNow'))}</button>
       ${c.admin ? `<label class="f" for="syMember">${esc(t('memberCode'))}</label><input class="f" id="syMember" autocomplete="off" value="${esc(c.memberCode || '')}">
-        <button class="btn outline" data-act="copyLink" style="margin-top:8px">🔗 ${esc(t('copyLink'))}</button><p class="muted" style="margin:6px 0 0">${esc(t('linkHint'))}</p>
+        <div class="row" style="margin-top:8px"><button class="btn outline" data-act="copyLink">🔗 ${esc(t('copyLinkShort'))}</button><button class="btn primary" data-act="copyLink" data-mode="qr">▦ ${esc(t('showQr'))}</button></div><p class="muted" style="margin:6px 0 0">${esc(t('linkHint'))}</p>
         <button class="btn ${S.ds.concentrators.length ? 'outline' : 'primary big'}" data-act="uploadShared" style="margin-top:10px">⬆ ${esc(t('uploadShared'))}</button>` : ''}
       <div id="syncMsg" class="muted" style="margin-top:6px"></div>
       <button class="btn danger" data-act="syncDisconnect" style="margin-top:10px">${esc(t('syncDisconnect'))}</button></div>`;
@@ -852,7 +866,10 @@
     switch (el.dataset.act) {
       case 'closeSheet': if (S.wz) await wzSavePlacement(); closeSheet(); break;
       case 'back': S.detail = null; lineLayer.clearLayers(); showView(S.prevTab === 'list' || wide() ? (wide() ? 'map' : 'list') : 'map'); if (!$('#v-list').hidden) renderList(); renderMarkers(); break;
-      case 'locate': closeSheet(); if (S.me && S.manual) { positionSheet(); break; } if (S.me) { S.follow = !S.follow; $('#btnLocate').classList.toggle('on', S.follow); map.setView([S.me.lat, S.me.lng], Math.max(map.getZoom(), 16)); } else startGps(); startCompass(true); break;
+      case 'locate': closeSheet(); if (S.me && S.manual) { positionSheet(); break; }
+        if (S.me) { S.follow = !S.follow; $('#btnLocate').classList.toggle('on', S.follow); toast(t(S.follow ? 'followOn' : 'followOff')); if (S.follow) map.setView([S.me.lat, S.me.lng], Math.max(map.getZoom(), 16)); } else startGps(); startCompass(true); break;
+      case 'toggleNear': S.prefs.nearCollapsed = !S.prefs.nearCollapsed; Data.kvSet('prefs', S.prefs); renderNear(); break;
+      case 'showQr': qrSheet(el.dataset.qr === 'setup' ? setupLink() : location.origin + location.pathname, el.dataset.qr === 'setup'); break;
       case 'sim': positionSheet(); break;
       case 'posMap': closeSheet(); S.sim = true; setTab('map'); toast(t('posTapMap')); break;
       case 'posGps': closeSheet(); S.gpsFailShown = true; startGps(); break;
@@ -889,7 +906,8 @@
         try { await connectShared({ url, code }); setTab('map'); } catch (e) { $('#syncMsg').textContent = t('syncErr', { e: e.message }); } break; }
       case 'syncNow': await syncNow(); break;
       case 'copyLink': { const m = ($('#syMember').value || '').trim(); if (!m || m === S.sync.cfg.code) { toast(t('linkNeedsMember')); return; }
-        S.sync.cfg.memberCode = m; await Data.kvSet('sync:cfg', S.sync.cfg); copy(setupLink()); break; }
+        S.sync.cfg.memberCode = m; await Data.kvSet('sync:cfg', S.sync.cfg);
+        if (el.dataset.mode === 'qr') qrSheet(setupLink(), true); else copy(setupLink()); break; }
       case 'uploadShared': try { await uploadToShared(); } catch (e) { toast(t('syncErr', { e: e.message })); } break;
       case 'syncDisconnect': if (!armed('disc')) return; await Data.forgetShared(); S.sync.cfg = null; S.imgCache.clear(); await activate('demo', Data.demoDataset()); renderMore(); fitData(); break;
       case 'clearChanges': if (!armed('clear')) return; await Data.clearChanges(S.mode); S.events = []; rebuildCh(); renderAll(); renderMore(); break;
