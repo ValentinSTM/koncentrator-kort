@@ -50,7 +50,8 @@ Datele de contact ale persoanelor (nume, telefoane) **nu** se urcă; rămân doa
 
 1. Scanează codul QR (sau deschide linkul) → aplicația se deschide în browserul telefonului, se configurează singură și încarcă datele.
 2. Își scrie numele (apare în istoric la modificările lui).
-3. Meniu browser → **Add to Home screen**.
+3. **Mere → App på telefonen → Installér appen** (Android) sau în Safari: Partajare → «Adaugă pe ecranul principal» (iPhone).
+4. Opțional, înainte de o zi fără semnal: **Mere → Hent alle fotos til brug uden internet**.
 
 În antet: **DELT · ✓** = totul e trimis; **DELT · 2 ⇡** = 2 modificări așteaptă semnal; **⟳** = sincronizează acum.
 Aplicația sincronizează la deschidere, la revenirea semnalului și la fiecare 2 minute.

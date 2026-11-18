@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node tools/check.js
+      - name: Stamp app version (makes installed apps update)
+        run: sed -i "s/const VERSION = 'dev';/const VERSION = '${GITHUB_SHA::8}';/" app/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

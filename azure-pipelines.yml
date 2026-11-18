@@ -21,6 +21,9 @@ jobs:
       - script: node tools/check.js
         displayName: Check app
 
+      - script: sed -i "s/const VERSION = 'dev';/const VERSION = '$(Build.SourceVersion)';/" app/sw.js
+        displayName: Stamp app version
+
       - task: AzureStaticWebApp@0
         displayName: Publish to Azure Static Web Apps
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['publish_enabled'], 'true'))

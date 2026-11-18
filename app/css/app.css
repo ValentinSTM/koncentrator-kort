@@ -185,3 +185,7 @@ textarea.f{min-height:96px;resize:vertical}
 #nearSheet.collapsed .pill{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:99px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);min-height:52px;padding:8px 16px;font-weight:800;font-size:16px;cursor:pointer}
 .qrbox{background:#fff;border-radius:14px;padding:12px;display:flex;justify-content:center}
 .qrbox svg{width:100%;max-width:320px;height:auto;display:block}
+
+#updBar{position:fixed;left:8px;right:8px;top:calc(8px + var(--safe-t));z-index:3500;max-width:520px;margin:0 auto;background:var(--ink);color:#fff;border-radius:14px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:10px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+#updBar span{flex:1}
+@media (display-mode: standalone){ header{padding-top:calc(10px + var(--safe-t))} }
