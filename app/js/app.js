@@ -147,7 +147,7 @@
   function initMap() {
     map = L.map('map', { zoomControl: true, preferCanvas: true, tap: true }).setView([56.16, 10.18], 11);
     let ok = 0, bad = 0;
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: 'anonymous', attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
       .on('tileload', () => ok++).on('tileerror', () => { bad++; if (bad > 3 && !ok) { $('#map').classList.add('notiles'); const n = $('#mapNote'); n.textContent = t('tilesBlocked'); n.hidden = false; setTimeout(() => (n.hidden = true), 9000); } })
       .addTo(map);
     layerC = L.layerGroup().addTo(map); layerS = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
@@ -662,6 +662,7 @@
     S.sync.state = (await Data.kvGet('sync:state')) || { since: 0, version: '' };
     const ds = await Data.kvGet('dataset:shared');
     await activate('shared', ds || { schema: 'koncentrator-kort/1', sites: [], concentrators: [], generatedAt: '' });
+    keepStorage();
     if (!silent) toast(t('syncConnected'));
     await syncNow(); fitData();
     if (!S.prefs.name) nameSheet();
@@ -698,6 +699,44 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') scheduleSync(300); });
   setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 120000);
 
+  /* ---------------- app install (PWA), offline, updates ---------------- */
+  let installEvt = null, swReg = null;
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (!$('#v-more').hidden) renderMore(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; toast(t('installed')); });
+  function registerSw() {
+    if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      swReg = reg;
+      const watch = (w) => w && w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) $('#updBar').hidden = false; });
+      if (reg.waiting && navigator.serviceWorker.controller) $('#updBar').hidden = false;
+      reg.addEventListener('updatefound', () => watch(reg.installing));
+      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+    }).catch(() => {});
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading) { reloading = true; location.reload(); } });
+  }
+  async function keepStorage() { try { if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch {} }
+  function installCard() {
+    if (standalone()) return `<div class="card"><h2>${esc(t('installTitle'))}</h2><div class="alert ok"><span class="ic">✓</span><span>${esc(t('installedAlready'))}</span></div></div>`;
+    return `<div class="card"><h2>${esc(t('installTitle'))}</h2><p style="margin:0 0 10px">${esc(t('installWhy'))}</p>
+      ${installEvt ? `<button class="btn primary big" data-act="install">📲 ${esc(t('installBtn'))}</button>`
+        : `<div class="alert info"><span class="ic">ℹ</span><span>${esc(isIos() ? t('installIos') : t('installAndroid'))}</span></div>`}</div>`;
+  }
+  async function prefetchPhotos() {
+    const keys = [];
+    for (const c of S.ds.concentrators) for (const p of c.photos || []) keys.push(Data.imgKey(S.mode, p.file));
+    for (const e of S.events) if (e.type === 'photo') keys.push(Data.newImgKey(S.mode, e.data.pid));
+    let i = 0, ok = 0; const msg = $('#syncMsg');
+    for (const k of keys) {
+      i++; if (msg) msg.textContent = t('offlinePhotosProgress', { i, n: keys.length });
+      if (S.imgCache.get(k) || await Data.kvGet(k)) { ok++; continue; }
+      if (await fetchRemotePhoto(k)) ok++;
+    }
+    if (msg) msg.textContent = t('offlinePhotosDone', { n: ok, m: keys.length }); toast(t('offlinePhotosDone', { n: ok, m: keys.length }));
+  }
+
   /* ---------------- photo viewer ---------------- */
   let vList = [], vIdx = 0, vRec = null;
   function openViewer(rec, i) { vRec = rec; vList = rec.photos; vIdx = i; $('#viewer').hidden = false; showViewerImg(); }
@@ -713,7 +752,7 @@
     const all = S.ds.concentrators.map(eff);
     const st = { total: all.length, withPhoto: all.filter(e => e.photos.length).length, detailed: all.filter(e => e.ck.room && e.ck.detail).length, verified: all.filter(e => e.ck.gps).length, own: all.filter(e => e.ownSite).length };
     const changed = Object.keys(S.ch).length;
-    $('#moreWrap').innerHTML = `
+    $('#moreWrap').innerHTML = `${installCard()}
       <div class="card"><h2>${esc(t('stats'))}</h2><dl class="kv">
         <dt>${esc(t('st_total'))}</dt><dd>${st.total}</dd><dt>${esc(t('st_withPhoto'))}</dt><dd>${st.withPhoto}</dd>
         <dt>${esc(t('st_detailed'))}</dt><dd>${st.detailed}</dd><dt>${esc(t('st_verified'))}</dt><dd>${st.verified}</dd><dt>${esc(t('st_own'))}</dt><dd>${st.own}</dd>
@@ -748,6 +787,7 @@
       <div class="alert ${S.sync.error ? 'warn' : 'ok'}"><span class="ic">${S.sync.error ? '⚠' : '✓'}</span><span>${esc(S.sync.error === 'offline' ? t('syncOffline') : S.sync.error ? t('syncErr', { e: S.sync.error }) : t('syncConnected'))}<br>
         <span class="muted">${esc(t('syncLast', { t: S.sync.lastOk ? fmtDate(S.sync.lastOk, true) : t('never2') }))}${pending ? ' · ' + esc(t('syncPending', { n: pending })) : ''}</span></span></div>
       <button class="btn primary" data-act="syncNow" style="margin-top:10px" ${S.sync.busy ? 'disabled' : ''}>⟳ ${esc(t('syncNow'))}</button>
+      <button class="btn outline" data-act="prefetchPhotos" style="margin-top:8px">⬇ ${esc(t('offlinePhotos'))}</button>
       ${c.admin ? `<label class="f" for="syMember">${esc(t('memberCode'))}</label><input class="f" id="syMember" autocomplete="off" value="${esc(c.memberCode || '')}">
         <div class="row" style="margin-top:8px"><button class="btn outline" data-act="copyLink">🔗 ${esc(t('copyLinkShort'))}</button><button class="btn primary" data-act="copyLink" data-mode="qr">▦ ${esc(t('showQr'))}</button></div><p class="muted" style="margin:6px 0 0">${esc(t('linkHint'))}</p>
         <button class="btn ${S.ds.concentrators.length ? 'outline' : 'primary big'}" data-act="uploadShared" style="margin-top:10px">⬆ ${esc(t('uploadShared'))}</button>` : ''}
@@ -772,7 +812,7 @@
         delete ds.embeddedPhotos; toast(t('photosLinked', { n }));
       }
       const packEvents = Array.isArray(ds.events) ? ds.events : null; delete ds.events;
-      const ok = await Data.saveLocalDataset(ds); if (!ok) toast(t('storageWarn'));
+      const ok = await Data.saveLocalDataset(ds); if (!ok) toast(t('storageWarn')); keepStorage();
       await activate('local', ds);
       if (packEvents) await mergeEvents(packEvents, null, true);
       $('#loadMsg') && ($('#loadMsg').textContent = t('loaded', { n: ds.concentrators.length }));
@@ -899,6 +939,9 @@
       case 'export': exportChanges(); break;
       case 'phonePack': phonePack(); break;
       case 'importChanges': $('#chgIn').click(); break;
+      case 'install': if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; renderMore(); } break;
+      case 'applyUpdate': if (S.wz) await wzSavePlacement(); if (swReg && swReg.waiting) swReg.waiting.postMessage('skipWaiting'); else location.reload(); break;
+      case 'prefetchPhotos': await prefetchPhotos(); break;
       case 'saveName': { const v = ($('#nameIn').value || '').trim(); if (!v) return; S.prefs.name = v; await Data.kvSet('prefs', S.prefs); closeSheet(); toast(t('saved')); break; }
       case 'syncConnect': { const url = ($('#syUrl').value || '').trim(), code = ($('#syCode').value || '').trim();
         if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url) || !code) { toast(t('required')); return; }
@@ -931,6 +974,7 @@
   async function activate(mode, ds) { S.mode = mode; S.ds = ds; S.events = await Data.getEvents(mode); rebuildCh(); S.detail = null; applyI18n(); renderAll(); }
   (async function boot() {
     $('#listWrap').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+    registerSw();
     S.prefs = Object.assign({ name: '', lang: 'da' }, (await Data.kvGet('prefs')) || {});
     S.lang = I18N[S.prefs.lang] ? S.prefs.lang : 'da';
     try { S.dict = await Data.loadDictionary(); } catch { S.dict = { categories: {} }; toast('placement-dictionary.json ?'); }

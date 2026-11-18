@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b2a3c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Koncentrator">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Koncentrator-kort</title>
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
@@ -41,6 +47,7 @@
 <div id="viewer" hidden><img id="viewerImg" alt=""><div class="bar"><div class="txt" id="viewerTxt"></div>
   <button class="btn small ghost" id="viewerPrev">‹</button><button class="btn small ghost" id="viewerNext">›</button><button class="btn small warn" id="viewerClose">✕</button></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="updBar" hidden><span data-i18n="updReady">Ny version klar</span><button class="btn small warn" data-act="applyUpdate" data-i18n="updNow">Opdatér</button></div>
 <input id="fileIn" type="file" accept="image/*" capture="environment" hidden>
 <input id="jsonIn" type="file" accept=".json,application/json" hidden>
 <input id="chgIn" type="file" accept=".json,application/json" multiple hidden>

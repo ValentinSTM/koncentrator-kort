@@ -15,5 +15,9 @@ for (const f of ['app/js/app.js', 'app/js/data.js']) { try { new vm.Script(fs.re
 for (const f of fs.readdirSync(path.join(root, 'app'), { recursive: true })) {
   if (/\.(csv|kmz|kml|xlsx)$/i.test(f) || /koncentrator-data|koncentrator-telefon/i.test(f)) bad('real-data file in app/: ' + f);
 }
+const sw = fs.readFileSync(path.join(root, 'app/sw.js'), 'utf8');
+const files = (sw.match(/APP_FILES = \[([\s\S]*?)\]/) || [, ''])[1].match(/'\.\/[^']*'/g) || [];
+for (const f of files) { const rel = f.slice(3, -1); if (rel && !fs.existsSync(path.join(root, 'app', rel))) bad('sw.js precache missing file: ' + rel); }
+if (!/const VERSION = '/.test(sw)) bad('sw.js VERSION missing');
 if (fail) { console.error(fail + ' problem(s)'); process.exit(1); }
 console.log('ok: i18n ' + Object.keys(L.da).length + ' keys × 3, dictionary ' + Object.values(dict.categories).flat().length + ' entries × 3');

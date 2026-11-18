@@ -29,6 +29,7 @@ def js(m):
     return "<script>\n" + safe((APP / m.group(1)).read_text(encoding="utf-8"), m.group(1)) + "\n</script>"
 
 
+html = re.sub(r'<link rel="(manifest|apple-touch-icon)"[^>]*>\n?', "", html)  # single file: no install, no icons
 html, n_css = re.subn(r'<link rel="stylesheet" href="([^"]+)">', css, html)
 html, n_js = re.subn(r'<script src="([^"]+)"></script>', js, html)
 dict_json = safe((APP / "data" / "placement-dictionary.json").read_text(encoding="utf-8"), "dictionary")

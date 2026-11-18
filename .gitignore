@@ -15,6 +15,7 @@ poze_concentratoare/
 *.jpeg
 *.png
 !app/vendor/**
+!app/icons/*.png
 *.heic
 .env
 .env.*
