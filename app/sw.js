@@ -9,7 +9,7 @@ const MAX_TILES = 3000;
 const APP_FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/i18n.js', './js/data.js', './js/app.js',
-  './vendor/leaflet.js', './vendor/leaflet.css', './vendor/qrcode.js',
+  './vendor/leaflet.js', './vendor/leaflet.css', './vendor/qrcode.js', './vendor/jsQR.js',
   './data/placement-dictionary.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'
 ];

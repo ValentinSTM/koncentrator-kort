@@ -324,8 +324,9 @@
       <span class="dist">${dist}</span></button>`;
   }
   function renderNear() {
-    const el = $('#nearSheet');
-    if (!S.me) { el.innerHTML = `<div class="row"><button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button><button class="btn outline big" data-act="sim" style="flex:.45" aria-label="${esc(t('posTitle'))}">📌</button></div>`; return; }
+    const el = $('#nearSheet'); el.classList.remove('collapsed');
+    const banner = S.prefs.nearCollapsed ? '' : demoBanner();
+    if (!S.me) { el.innerHTML = banner + `<div class="row"><button class="btn primary big" data-act="locate">📍 ${esc(t('showNearest'))}</button><button class="btn outline big" data-act="sim" style="flex:.45" aria-label="${esc(t('posTitle'))}">📌</button></div>`; return; }
     el.classList.remove('collapsed');
     if (sharedEmptyHtml()) { el.innerHTML = sharedEmptyHtml(); return; }
     const r = filtered().filter(x => x.kind === 'c' && x.status === 'Active' && x.lat != null).slice(0, 2);
@@ -333,7 +334,7 @@
       el.classList.add('collapsed');
       el.innerHTML = `<button class="pill" data-act="toggleNear" aria-label="${esc(t('nearest'))}">▴ ${esc(t('nearest'))}${r[0] ? ' · ' + fmtDist(hav(S.me, r[0])) : ''}</button>`; return;
     }
-    el.innerHTML = `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><span style="display:flex;gap:6px"><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button><button class="btn small ghost" data-act="toggleNear" aria-label="${esc(t('hideNear'))}" style="min-width:44px">▾</button></span></div><div class="list">${r.map(itemHtml).join('')}</div>`;
+    el.innerHTML = banner + `<div class="head"><span>${esc(t('nearest'))}${S.manual ? ` · <button class="btn small ghost" data-act="sim" style="min-height:34px;padding:2px 10px">📌 ${esc(t('posManual'))} · ${esc(t('posChange'))}</button>` : ''}</span><span style="display:flex;gap:6px"><button class="btn small ghost" data-tab="list">${esc(t('tabList'))} ›</button><button class="btn small ghost" data-act="toggleNear" aria-label="${esc(t('hideNear'))}" style="min-width:44px">▾</button></span></div><div class="list">${r.map(itemHtml).join('')}</div>`;
     hydrate(el);
   }
   function sharedEmptyHtml() {
@@ -347,7 +348,7 @@
     if (sharedEmptyHtml()) { w.innerHTML = sharedEmptyHtml(); return; }
     if (!r.length) { w.innerHTML = `<div class="empty"><b>${esc(t('noResults'))}</b>${esc(t('noResultsHint'))}</div><button class="btn ghost" data-act="clearFilters">${esc(t('clear'))}</button>`; return; }
     const nc = r.filter(x => x.kind === 'c').length, ns = r.length - nc;
-    w.innerHTML = `<div class="muted">${esc(t('found', { n: nc }))}${ns ? ' · ' + esc(t('sitesN', { n: ns })) : ''}</div><div class="list">${r.slice(0, S.listLimit).map(itemHtml).join('')}</div>`
+    w.innerHTML = demoBanner() + `<div class="muted">${esc(t('found', { n: nc }))}${ns ? ' · ' + esc(t('sitesN', { n: ns })) : ''}</div><div class="list">${r.slice(0, S.listLimit).map(itemHtml).join('')}</div>`
       + (r.length > S.listLimit ? `<button class="btn ghost" data-act="more">${esc(t('showMore'))} (${r.length - S.listLimit})</button>` : '');
     hydrate(w);
   }
@@ -690,6 +691,38 @@
     await connectShared(S.sync.cfg, true);
     toast(t('uploadDone', { n: ds.concentrators.length, p: ok })); const m2 = $('#syncMsg'); if (m2) m2.textContent = t('uploadDone', { n: ds.concentrators.length, p: ok });
   }
+  async function applySetup(b64) {
+    const cfg = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(cfg.url) || !cfg.code) throw new Error('bad');
+    toast(t('setupLinkOk')); S.sync.cfg = null;
+    await connectShared({ url: cfg.url, code: cfg.code }, true);
+    setTab('map');
+  }
+  async function decodeQr(file) {
+    const bmp = await createImageBitmap(file);
+    for (const max of [1600, 900, 2400]) {
+      const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+      const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, cv.width, cv.height);
+      if ('BarcodeDetector' in window) { try { const r = await new BarcodeDetector({ formats: ['qr_code'] }).detect(cv); if (r[0]) return r[0].rawValue; } catch {} }
+      const d = g.getImageData(0, 0, cv.width, cv.height); const r = window.jsQR && jsQR(d.data, cv.width, cv.height, { inversionAttempts: 'attemptBoth' });
+      if (r && r.data) return r.data;
+    }
+    return '';
+  }
+  async function onQrPhoto(file) {
+    toast(t('qrReading'));
+    let text = ''; try { text = await decodeQr(file); } catch {}
+    if (!text) { toast(t('qrNotFound')); return; }
+    const m = text.match(/#setup=([A-Za-z0-9+/=]+)/);
+    if (!m) { toast(/github\.io|koncentrator-kort/.test(text) ? t('qrNotSetup') : t('qrNotFound')); return; }
+    try { await applySetup(m[1]); } catch { toast(t('syncUnauthorized')); }
+  }
+  function demoBanner() {
+    if (S.mode !== 'demo') return '';
+    return `<div class="alert warn" style="margin-bottom:8px"><span class="ic">ℹ</span><span>${esc(t('demoBanner'))}</span></div>
+      <button class="btn primary" data-act="scanQr" style="margin-bottom:8px">📷 ${esc(t('scanQr'))}</button>`;
+  }
   function setupLink() {
     const c = S.sync.cfg; if (!c) return '';
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify({ url: c.url, code: c.memberCode || c.code }))));
@@ -752,7 +785,7 @@
     const all = S.ds.concentrators.map(eff);
     const st = { total: all.length, withPhoto: all.filter(e => e.photos.length).length, detailed: all.filter(e => e.ck.room && e.ck.detail).length, verified: all.filter(e => e.ck.gps).length, own: all.filter(e => e.ownSite).length };
     const changed = Object.keys(S.ch).length;
-    $('#moreWrap').innerHTML = `${installCard()}
+    $('#moreWrap').innerHTML = `${demoBanner()}${installCard()}
       <div class="card"><h2>${esc(t('stats'))}</h2><dl class="kv">
         <dt>${esc(t('st_total'))}</dt><dd>${st.total}</dd><dt>${esc(t('st_withPhoto'))}</dt><dd>${st.withPhoto}</dd>
         <dt>${esc(t('st_detailed'))}</dt><dd>${st.detailed}</dd><dt>${esc(t('st_verified'))}</dt><dd>${st.verified}</dd><dt>${esc(t('st_own'))}</dt><dd>${st.own}</dd>
@@ -782,7 +815,8 @@
     if (!c) return `<div class="card"><h2>${esc(t('syncTitle'))}</h2><p class="muted" style="margin:0 0 8px">${esc(t('syncHint'))}</p>
       <label class="f" for="syUrl">${esc(t('syncUrl'))}</label><input class="f" id="syUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
       <label class="f" for="syCode">${esc(t('syncCode'))}</label><input class="f" id="syCode" autocomplete="off">
-      <button class="btn primary" data-act="syncConnect" style="margin-top:10px">${esc(t('syncConnect'))}</button><div id="syncMsg" class="muted" style="margin-top:6px"></div></div>`;
+      <button class="btn primary" data-act="syncConnect" style="margin-top:10px">${esc(t('syncConnect'))}</button>
+      <button class="btn outline" data-act="scanQr" style="margin-top:8px">📷 ${esc(t('scanQr'))}</button><div id="syncMsg" class="muted" style="margin-top:6px"></div></div>`;
     return `<div class="card"><h2>${esc(t('syncTitle'))}${c.admin ? ' · ' + esc(t('adminBadge')) : ''}</h2>
       <div class="alert ${S.sync.error ? 'warn' : 'ok'}"><span class="ic">${S.sync.error ? '⚠' : '✓'}</span><span>${esc(S.sync.error === 'offline' ? t('syncOffline') : S.sync.error ? t('syncErr', { e: S.sync.error }) : t('syncConnected'))}<br>
         <span class="muted">${esc(t('syncLast', { t: S.sync.lastOk ? fmtDate(S.sync.lastOk, true) : t('never2') }))}${pending ? ' · ' + esc(t('syncPending', { n: pending })) : ''}</span></span></div>
@@ -939,6 +973,7 @@
       case 'export': exportChanges(); break;
       case 'phonePack': phonePack(); break;
       case 'importChanges': $('#chgIn').click(); break;
+      case 'scanQr': closeSheet(); $('#qrIn').click(); break;
       case 'install': if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; renderMore(); } break;
       case 'applyUpdate': if (S.wz) await wzSavePlacement(); if (swReg && swReg.waiting) swReg.waiting.postMessage('skipWaiting'); else location.reload(); break;
       case 'prefetchPhotos': await prefetchPhotos(); break;
@@ -958,6 +993,7 @@
     }
   });
   $('#jsonIn').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) loadJsonFile(f); });
+  $('#qrIn').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onQrPhoto(f); });
   $('#chgIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) importChangeFiles(fs); });
   $('#dirIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) loadPhotoFiles(fs); });
   $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') { if (S.wz) wzSavePlacement(); closeSheet(); } });
@@ -984,7 +1020,7 @@
     const m = location.hash.match(/^#setup=([A-Za-z0-9+/=]+)$/);
     if (m) {
       history.replaceState(null, '', location.pathname + location.search);
-      try { const cfg = JSON.parse(decodeURIComponent(escape(atob(m[1])))); if (/^https:\/\/script\.google(usercontent)?\.com\//.test(cfg.url) && cfg.code) { toast(t('setupLinkOk')); S.sync.cfg = null; await connectShared({ url: cfg.url, code: cfg.code }, true).catch(() => toast(t('syncUnauthorized'))); } } catch { toast(t('badFile')); }
+      try { await applySetup(m[1]); } catch { toast(t('syncUnauthorized')); }
     }
     if (!S.mode || S.mode === 'demo' || !S.ds) {
       const { mode, ds } = await Data.loadActive();
