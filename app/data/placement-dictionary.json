@@ -6,7 +6,7 @@
   "roomRecognised": 975,
   "sideRecognised": 93,
   "heightRecognised": 98,
-  "floorRecognised": 75,
+  "floorRecognised": 93,
   "landmarkRecognised": 231,
   "detailed(room+side or height)": 135,
   "onlyOneWord": 516
@@ -327,6 +327,38 @@
     "ro": "Etajul 2",
     "pattern": "\\b2\\.? ?sal",
     "count": 7
+   },
+   {
+    "key": "sal3",
+    "da": "3. sal",
+    "en": "3rd floor",
+    "ro": "Etajul 3",
+    "pattern": "\\b3\\.? ?sal",
+    "count": 6
+   },
+   {
+    "key": "sal4",
+    "da": "4. sal",
+    "en": "4th floor",
+    "ro": "Etajul 4",
+    "pattern": "\\b4\\.? ?sal",
+    "count": 11
+   },
+   {
+    "key": "sal5",
+    "da": "5. sal",
+    "en": "5th floor",
+    "ro": "Etajul 5",
+    "pattern": "\\b5\\.? ?sal",
+    "count": 0
+   },
+   {
+    "key": "sal6plus",
+    "da": "6. sal eller højere",
+    "en": "6th floor or higher",
+    "ro": "Etajul 6 sau mai sus",
+    "pattern": "\\b([6-9]|1\\d)\\.? ?sal",
+    "count": 1
    },
    {
     "key": "oeverste",

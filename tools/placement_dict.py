@@ -51,6 +51,10 @@ D = {
   ("stue",          "Stueetage",                 "Ground floor",             "Parter",                  r"stue ?etage|\bstuen\b"),
   ("sal1",          "1. sal",                    "1st floor",                "Etajul 1",                r"\b1\.? ?sal"),
   ("sal2",          "2. sal",                    "2nd floor",                "Etajul 2",                r"\b2\.? ?sal"),
+  ("sal3",          "3. sal",                    "3rd floor",                "Etajul 3",                r"\b3\.? ?sal"),
+  ("sal4",          "4. sal",                    "4th floor",                "Etajul 4",                r"\b4\.? ?sal"),
+  ("sal5",          "5. sal",                    "5th floor",                "Etajul 5",                r"\b5\.? ?sal"),
+  ("sal6plus",      "6. sal eller højere",       "6th floor or higher",      "Etajul 6 sau mai sus",    r"\b([6-9]|1\d)\.? ?sal"),
   ("oeverste",      "Øverste etage",             "Top floor",                "Ultimul etaj",            r"øverste"),
  ],
  "landmark": [

@@ -43,7 +43,7 @@
   }
 
   /* ---------------- dictionary helpers ---------------- */
-  function dictItems(cat) { return (S.dict.categories[cat] || []).slice().sort((a, b) => b.count - a.count); }
+  function dictItems(cat) { const it = (S.dict.categories[cat] || []).slice(); return cat === 'floor' ? it : it.sort((a, b) => b.count - a.count); }   // floors stay in building order
   function label(cat, key) { const it = (S.dict.categories[cat] || []).find(i => i.key === key); return it ? (it[S.lang] || it.da) : key; }
   const short = (s) => s.split(' / ')[0].split(' (')[0];
   function sentence(p) {
@@ -552,7 +552,7 @@
     } else if (wz.step === 2) {
       body = `<h3 style="margin:0">2 · ${esc(t('wz2'))}</h3>
         <div class="preview"><div class="muted" style="color:#c9d6de;font-size:13px">${esc(t('preview'))}</div>${esc(sentence(wz.placement) || '…')}</div>
-        ${chipGroup('room', true, 9)}${chipGroup('side', false, 0)}${chipGroup('height', true, 0)}${chipGroup('landmark', false, 0)}${chipGroup('floor', true, 0)}
+        ${chipGroup('room', true, 9)}${chipGroup('floor', true, 0)}${chipGroup('side', false, 0)}${chipGroup('height', true, 0)}${chipGroup('landmark', false, 0)}
         ${chipGroup('access', false, 0)}${chipGroup('antenna', false, 0)}
         <label class="f" for="wzNote">${esc(t('noteOpt'))}</label><textarea class="f" id="wzNote" maxlength="1000">${esc(wz.note)}</textarea>`;
       foot = `<button class="btn ghost" data-act="wzPrev" style="flex:.5">‹</button><button class="btn primary" data-act="wzNext">${esc(t('next'))} ›</button>`;
