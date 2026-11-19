@@ -77,10 +77,14 @@ Unde, față de ușă sau de intrare.
 | Cheie | Dansk | English | Română | Frecvență |
 |---|---|---|---|---:|
 | `kaelder_etage` | Kælderetage | Basement level | Nivel subsol | 57 |
+| `sal4` | 4. sal | 4th floor | Etajul 4 | 11 |
 | `sal1` | 1. sal | 1st floor | Etajul 1 | 9 |
 | `sal2` | 2. sal | 2nd floor | Etajul 2 | 7 |
+| `sal3` | 3. sal | 3rd floor | Etajul 3 | 6 |
 | `stue` | Stueetage | Ground floor | Parter | 1 |
+| `sal6plus` | 6. sal eller højere | 6th floor or higher | Etajul 6 sau mai sus | 1 |
 | `oeverste` | Øverste etage | Top floor | Ultimul etaj | 1 |
+| `sal5` | 5. sal | 5th floor | Etajul 5 | 0 |
 
 ## Pejlemærke / reper / landmark
 
