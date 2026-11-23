@@ -88,7 +88,7 @@
     S.effCache.set(c.concentratorId, e);
     return e;
   }
-  function siteRec(s) { return Object.assign({}, s, { kind: 's', id: s.siteId, lat: s.latitude, lng: s.longitude }); }
+  function siteRec(s) { const ch = (S.ch && S.ch[s.siteId]) || {}; return Object.assign({}, s, { kind: 's', id: s.siteId, lat: s.latitude, lng: s.longitude, photos: (ch.photos || []).map(p => ({ base: false, pid: p.pid, caption: p.caption, at: p.at, by: p.by })) }); }
   function allRecords() {
     const out = [];
     if (S.filters.tech.has('radiomesh')) for (const c of S.ds.concentrators) out.push(eff(c));
@@ -416,7 +416,7 @@
         <div class="checks" style="margin-top:10px">${checks.map(([k, l]) => `<div><span class="${r.ck[k] ? 'ok' : 'no'}">${r.ck[k] ? '✓' : '○'}</span>${esc(t(l))}</div>`).join('')}</div></div>
       <div class="card"><h2>${esc(t('photos'))} (${ph.length})</h2>
         ${ph.length ? `<div class="thumbs">${ph.map((x, i) => `<button data-photo="${i}" aria-label="${esc(x.caption || '')}">${imgTag(x, r, 'thumb')}${x.base ? '' : `<span class="new">${esc(t('newBadge'))}</span>`}</button>`).join('')}</div>` : `<div class="muted">${esc(t('noPhotos'))}</div>`}
-        <button class="btn outline" data-act="addPhoto" style="margin-top:10px">📷 ${esc(t('addPhoto'))}</button></div>
+        <div class="row" style="margin-top:10px"><button class="btn outline" data-act="addPhoto">📷 ${esc(t('addPhoto'))}</button><button class="btn outline" data-act="antenna" data-target="${esc(r.id)}">📡 ${esc(t('arOpenShort'))}</button></div></div>
       <div class="card"><h2>${esc(t('notes'))}</h2>
         ${r.notes.length ? `<ul class="timeline">${r.notes.slice().reverse().map(n => `<li class="mine"><time>${fmtDate(n.at, true)} · ${esc(n.by || t('unknownUser'))}</time>${esc(n.text)}</li>`).join('')}</ul>` : ''}
         <button class="btn ghost" data-act="addNote" style="margin-top:8px">＋ ${esc(t('addNote'))}</button></div>
@@ -433,6 +433,14 @@
       </div>`;
     hydrate(w); updateCompass();
   }
+  function siteExtras(r) {
+    const ch = S.ch[r.id] || {}; const ph = (ch.photos || []).map(p => ({ base: false, pid: p.pid, caption: p.caption, at: p.at, by: p.by }));
+    r.photos = ph;
+    return `<div class="card"><h2>${esc(t('photos'))} (${ph.length})</h2>
+      ${ph.length ? `<div class="thumbs">${ph.map((x, i) => `<button data-photo="${i}" aria-label="${esc(x.caption || '')}">${imgTag(x, r, 'thumb')}</button>`).join('')}</div>` : `<div class="muted">${esc(t('noPhotos'))}</div>`}
+      <button class="btn primary" data-act="antenna" data-target="${esc(r.id)}" style="margin-top:10px">📡 ${esc(t('arOpen'))}</button></div>
+      ${(ch.events || []).length ? `<div class="card"><h2>${esc(t('history'))}</h2><ul class="timeline">${ch.events.slice().reverse().map(ev => `<li class="${ev.mine ? 'mine' : ''}"><time>${fmtDate(ev.at, true)} · ${esc(ev.by || t('unknownUser'))}</time>${esc(t('ev_' + ev.type))}${ev.text ? ' – ' + esc(ev.text) : ''}</li>`).join('')}</ul></div>` : ''}`;
+  }
   function renderSite(r, w) {
     const near = S.ds.concentrators.map(eff).filter(c => c.lat != null && r.lat != null && hav(c, r) < 150);
     w.innerHTML = `
@@ -445,6 +453,7 @@
         ${r.lat != null ? `<div class="copyline" style="margin-top:8px"><span class="mono">${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}</span><button class="btn small ghost" data-copy="${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}">${esc(t('copy'))}</button></div>` : ''}</div>
       <div class="card"><h2>${esc(t('siteConcs'))} (${(r.concentrators || []).length})</h2><dl class="kv">
         ${(r.concentrators || []).map(c => `<dt>${esc(t('serial'))}</dt><dd class="mono">${esc(c.serialNumber)}</dd><dt>${esc(t('model'))}</dt><dd>${esc(c.model)} · ${esc(c.firmware)}</dd>`).join('')}</dl></div>
+      ${siteExtras(r)}
       ${near.length ? `<div class="card"><h2>${esc(t('nearbyRM'))}</h2><div class="list">${near.map(itemHtml).join('')}</div></div>` : ''}
       <div class="actionbar">${r.lat != null ? `<a class="btn go big" href="${navUrl(r)}" target="_blank" rel="noopener">🧭 ${esc(t('navigate'))}</a>` : ''}</div>`;
     hydrate(w); updateCompass();
@@ -973,6 +982,9 @@
       case 'export': exportChanges(); break;
       case 'phonePack': phonePack(); break;
       case 'importChanges': $('#chgIn').click(); break;
+      case 'antenna': closeSheet(); window.AR.open(el.dataset.target || (r && r.id) || null); break;
+      case 'arSave': await saveAntennaPhoto(); break;
+      case 'arRetake': { const m = S.arPending && S.arPending.meta; if (S.arPending) URL.revokeObjectURL(S.arPending.url); S.arPending = null; closeSheet(); window.AR.open(m ? m.targetId : null); break; }
       case 'scanQr': closeSheet(); $('#qrIn').click(); break;
       case 'install': if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; renderMore(); } break;
       case 'applyUpdate': if (S.wz) await wzSavePlacement(); if (swReg && swReg.waiting) swReg.waiting.postMessage('skipWaiting'); else location.reload(); break;
@@ -1005,6 +1017,31 @@
     if (S.q && !$('#v-map').hidden && !wide()) { const r = filtered().filter(x => x.lat != null); if (r.length === 1) openDetail(r[0].kind, r[0].id); else if (r.length && r.length < 300) map.fitBounds(L.latLngBounds(r.map(x => [x.lat, x.lng])).pad(.2), { maxZoom: 17 }); } }, 220); });
   $('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(qT); S.q = e.target.value; e.target.blur(); renderAll(); const r = filtered(); if (r.length) openDetail(r[0].kind, r[0].id); } });
   window.addEventListener('resize', () => { if (S.detail && !$('#v-detail').hidden) showView('detail'); else showView(S.tab); });
+
+  /* ---------------- antenna photo (from the camera view in ar.js) ---------------- */
+  function antennaPhotoSheet(blob, meta) {
+    const url = URL.createObjectURL(blob);
+    openSheet({ title: t('arSaveTitle'),
+      body: `<img src="${url}" alt="" style="width:100%;border-radius:12px">
+        <div class="muted">${esc((meta.tech === 'linkiq' ? 'LinkIQ · ' : 'Radio Mesh · ') + meta.label)}</div>
+        <label class="f" for="arMeter">${esc(t('meterNo'))}</label><input class="f" id="arMeter" inputmode="numeric" maxlength="30" autocomplete="off">
+        <label class="f" for="arNote">${esc(t('noteOpt'))}</label><textarea class="f" id="arNote" maxlength="500"></textarea>`,
+      foot: `<button class="btn ghost" data-act="arRetake">↺ ${esc(t('arRetake'))}</button><button class="btn go" data-act="arSave">✓ ${esc(t('save'))}</button>` });
+    S.arPending = { blob, meta, url };
+  }
+  async function saveAntennaPhoto() {
+    const pnd = S.arPending; if (!pnd) return;
+    const meter = ($('#arMeter').value || '').trim(), note = ($('#arNote').value || '').trim();
+    const img = await Data.processPhoto(pnd.blob);
+    const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const ok = await Data.kvSet(Data.newImgKey(S.mode, pid), img); S.imgCache.set(Data.newImgKey(S.mode, pid), img); if (!ok) toast(t('storageWarn'));
+    const m = pnd.meta;
+    const caption = `${t('arCaption')}${meter ? ' · ' + t('meterShort') + ' ' + meter : ''}${m.deviation == null ? '' : ' · ' + t('arDeviation', { d: (m.deviation > 0 ? '+' : '') + m.deviation })}`;
+    await addEvent(m.targetId, 'photo', { pid, caption, kind: 'antenna', meter, note, distance: m.distance, bearing: m.bearing, deviation: m.deviation, heading: m.heading, mode: m.mode, gps: m.gps, summary: caption });
+    URL.revokeObjectURL(pnd.url); S.arPending = null; closeSheet(); toast(t('arSaved', { t: m.label }));
+    openDetail(m.kind, m.targetId);
+  }
+  window.KK = { S, t, esc, hav, bearing, fmtDist, dirName, eff, toast, startGps: () => startGps(), antennaPhotoSheet };
 
   /* ---------------- boot ---------------- */
   async function activate(mode, ds) { S.mode = mode; S.ds = ds; S.events = await Data.getEvents(mode); rebuildCh(); S.detail = null; applyI18n(); renderAll(); }
