@@ -1023,21 +1023,29 @@
     const url = URL.createObjectURL(blob);
     openSheet({ title: t('arSaveTitle'),
       body: `<img src="${url}" alt="" style="width:100%;border-radius:12px">
-        <div class="muted">${esc((meta.tech === 'linkiq' ? 'LinkIQ · ' : 'Radio Mesh · ') + meta.label)}</div>
-        <label class="f" for="arMeter">${esc(t('meterNo'))}</label><input class="f" id="arMeter" inputmode="numeric" maxlength="30" autocomplete="off">
+        <dl class="kv"><dt>${esc(t('meterSerial'))}</dt><dd class="mono">${esc(meta.meterSerial)}</dd>${meta.meterOrder ? `<dt>${esc(t('meterOrder'))}</dt><dd class="mono">${esc(meta.meterOrder)}</dd>` : ''}
+          <dt>→</dt><dd>${esc((meta.tech === 'linkiq' ? 'LinkIQ · ' : 'Radio Mesh · ') + meta.label)}</dd><dt>📄</dt><dd class="mono" style="font-size:13px">${esc(meta.fileName)}</dd></dl>
         <label class="f" for="arNote">${esc(t('noteOpt'))}</label><textarea class="f" id="arNote" maxlength="500"></textarea>`,
-      foot: `<button class="btn ghost" data-act="arRetake">↺ ${esc(t('arRetake'))}</button><button class="btn go" data-act="arSave">✓ ${esc(t('save'))}</button>` });
+      foot: `<button class="btn ghost" data-act="arRetake" style="flex:.6">↺ ${esc(t('arRetake'))}</button><button class="btn go" data-act="arSave">💾 ${esc(t('arSavePhone'))}</button>` });
     S.arPending = { blob, meta, url };
+  }
+  function saveFileOnPhone(blob, name) {
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (ios && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: name }).catch(() => {}); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }
   async function saveAntennaPhoto() {
     const pnd = S.arPending; if (!pnd) return;
-    const meter = ($('#arMeter').value || '').trim(), note = ($('#arNote').value || '').trim();
+    const m0 = pnd.meta, meter = m0.meterSerial, note = ($('#arNote').value || '').trim();
+    saveFileOnPhone(pnd.blob, m0.fileName);   // first, while the tap still counts as a user action (needed for sharing on iPhone)
     const img = await Data.processPhoto(pnd.blob);
     const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const ok = await Data.kvSet(Data.newImgKey(S.mode, pid), img); S.imgCache.set(Data.newImgKey(S.mode, pid), img); if (!ok) toast(t('storageWarn'));
     const m = pnd.meta;
     const caption = `${t('arCaption')}${meter ? ' · ' + t('meterShort') + ' ' + meter : ''}${m.deviation == null ? '' : ' · ' + t('arDeviation', { d: (m.deviation > 0 ? '+' : '') + m.deviation })}`;
-    await addEvent(m.targetId, 'photo', { pid, caption, kind: 'antenna', meter, note, distance: m.distance, bearing: m.bearing, deviation: m.deviation, heading: m.heading, mode: m.mode, gps: m.gps, summary: caption });
+    await addEvent(m.targetId, 'photo', { pid, caption, kind: 'antenna', meter, meterOrder: m.meterOrder || '', meterQr: m.meterQr || '', fileName: m.fileName, takenAt: m.takenAt, note, distance: m.distance, bearing: m.bearing, deviation: m.deviation, heading: m.heading, mode: m.mode, gps: m.gps, summary: caption });
     URL.revokeObjectURL(pnd.url); S.arPending = null; closeSheet(); toast(t('arSaved', { t: m.label }));
     openDetail(m.kind, m.targetId);
   }

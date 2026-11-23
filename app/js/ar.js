@@ -10,7 +10,7 @@
   const D2R = Math.PI / 180, R2D = 180 / Math.PI;
   const wrap = (a) => ((a + 540) % 360) - 180;
 
-  const A = { open: false, stream: null, ori: null, sx: 0, sy: 0, smooth: null, targetId: null, techs: new Set(['radiomesh', 'linkiq']), raf: 0, lastPanel: 0 };
+  const A = { meter: { serial: '', order: '', raw: '' }, scanning: false, scanUntil: 0, lastScan: 0, open: false, stream: null, ori: null, sx: 0, sy: 0, smooth: null, targetId: null, techs: new Set(['radiomesh', 'linkiq']), raf: 0, lastPanel: 0 };
 
   function onOri(e) {
     A.ori = { alpha: e.alpha, beta: e.beta, gamma: e.gamma, absolute: !!e.absolute || e.type === 'deviceorientationabsolute', webkit: typeof e.webkitCompassHeading === 'number' ? e.webkitCompassHeading : null, acc: typeof e.webkitCompassAccuracy === 'number' ? e.webkitCompassAccuracy : null };
@@ -64,6 +64,9 @@
         g.fillStyle = colorOf(sel); g.beginPath(); g.moveTo(0, -18 * u); g.lineTo(12 * u, 6 * u); g.lineTo(-12 * u, 6 * u); g.closePath(); g.fill(); g.restore();
         g.fillStyle = '#fff'; g.fillText(sel.label, cx + Math.sin(ang) * (L + 26 * u), cy - Math.cos(ang) * (L + 26 * u));
       }
+      const tr = 40 * u;   // the antenna seen from above: the tip of the triangle towards the top of the phone
+      g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 7 * u; g.beginPath(); g.moveTo(cx, cy - tr * 1.6); g.lineTo(cx + tr, cy + tr * .8); g.lineTo(cx - tr, cy + tr * .8); g.closePath(); g.stroke();
+      g.strokeStyle = '#fff'; g.lineWidth = 3.5 * u; g.stroke();
       return;
     }
     // upright: pins on the horizon
@@ -101,6 +104,7 @@
     if (!sel) return null;
     const head = p ? (p.mode === 'top' ? p.top : p.cam) : null;
     const dev = head == null ? null : Math.round(wrap(sel.b - head));
+    const m = A.meter;
     return { dev, head, txt: [
       `${sel.tech === 'linkiq' ? 'LinkIQ' : 'Radio Mesh'} · ${sel.label}`,
       `${K.fmtDist(sel.d)} · ${Math.round(sel.b)}° ${K.dirName(sel.b)}${dev == null ? '' : ' · ' + K.t('arDeviation', { d: (dev > 0 ? '+' : '') + dev })}`,
@@ -115,6 +119,7 @@
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(stage.clientWidth * dpr), H = Math.round(stage.clientHeight * dpr);
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    if (A.scanning) scanTick(K);
     const p = pose(), list = targets(K);
     let sel = list.find(x => x.id === A.targetId);
     if (!sel && list[0]) { sel = list[0]; A.targetId = sel.id; }
@@ -123,14 +128,48 @@
     if (now - A.lastPanel > 150) {
       A.lastPanel = now;
       const inf = info(K, p, sel);
-      $('#arHint').textContent = !K.S.me ? K.t('noGpsForDir') : !p || p.cam == null ? K.t('arNoCompass') : p.mode === 'top' ? K.t('arTop') : K.t('arUp');
+      $('#arHint').textContent = A.scanning ? K.t('arScanHint') : !K.S.me ? K.t('noGpsForDir') : !p || p.cam == null ? K.t('arNoCompass') : p.mode === 'top' ? K.t('arTop') : K.t('arUp');
       $('#arCompassBtn').hidden = !!(p && p.cam != null);
+      $('#arMeterTxt').innerHTML = A.meter.serial ? `${K.esc(K.t('meterSerial'))}: <b>${K.esc(A.meter.serial)}</b>${A.meter.order ? ' · ' + K.esc(K.t('meterOrder')) + ': ' + K.esc(A.meter.order) : ''}` : `<span class="warnTxt">${K.esc(K.t('arNeedMeter'))}</span>`;
+      $('#arShutter').classList.toggle('off', !A.meter.serial);
       const pan = $('#arInfo');
       if (inf) { pan.innerHTML = `<b>${K.esc(inf.txt[0])}</b><span class="dev ${devClass(inf.dev)}">${K.esc(inf.txt[1])}</span><small>${K.esc(inf.txt[2])}</small>`; }
       else pan.innerHTML = `<b>${K.esc(K.t('arNoTargets'))}</b>`;
       $('#arTargets').innerHTML = list.slice(0, 6).map(x => `<button class="chip${x.id === A.targetId ? ' on' : ''}" data-artarget="${K.esc(x.id)}"><span class="dot" style="background:${x.tech === 'linkiq' ? '#1565c0' : '#7b1fa2'}"></span>${K.esc(x.label)} · ${K.fmtDist(x.d)}</button>`).join('');
     }
     A.raf = requestAnimationFrame(loop);
+  }
+
+  /* meter label QR: two numbers (order/type number and serial number). The 8-digit one is taken as the serial;
+     both stay editable, because the label format is not documented here. */
+  function parseMeterQr(text) {
+    const nums = (String(text).match(/\d{5,}/g) || []);
+    let serial = nums.find(n => n.length === 8) || '', order = '';
+    if (!serial && nums.length) serial = nums.slice().sort((a, b) => a.length - b.length)[0];
+    order = nums.find(n => n !== serial) || '';
+    return { serial, order, raw: String(text).slice(0, 200) };
+  }
+  const scanCv = document.createElement('canvas');
+  async function scanTick(K) {
+    const now = performance.now(); if (now - A.lastScan < 300) return; A.lastScan = now;
+    if (now > A.scanUntil) { A.scanning = false; K.toast(K.t('qrNotFound')); return; }
+    const v = $('#arVideo'); if (!v.videoWidth) return;
+    const k = Math.min(1, 900 / Math.max(v.videoWidth, v.videoHeight));
+    scanCv.width = Math.round(v.videoWidth * k); scanCv.height = Math.round(v.videoHeight * k);
+    const g = scanCv.getContext('2d', { willReadFrequently: true }); g.drawImage(v, 0, 0, scanCv.width, scanCv.height);
+    let text = '';
+    if ('BarcodeDetector' in window) { try { const r = await new BarcodeDetector({ formats: ['qr_code', 'data_matrix', 'code_128'] }).detect(scanCv); if (r[0]) text = r[0].rawValue; } catch {} }
+    if (!text && window.jsQR) { const d = g.getImageData(0, 0, scanCv.width, scanCv.height); const r = jsQR(d.data, scanCv.width, scanCv.height); if (r) text = r.data; }
+    if (!text || !A.scanning) return;
+    const m = parseMeterQr(text);
+    if (!m.serial) { K.toast(K.t('arQrNoNumbers')); return; }
+    A.meter = m; A.scanning = false; A.lastPanel = 0;
+    try { navigator.vibrate && navigator.vibrate(120); } catch {}
+    showMeterForm(true);
+  }
+  function showMeterForm(show) {
+    const f = $('#arMeterForm'); f.hidden = !show;
+    if (show) { $('#arSerial').value = A.meter.serial || ''; $('#arOrder').value = A.meter.order || ''; }
   }
 
   async function open(targetId) {
@@ -158,10 +197,11 @@
   /* photo = camera frame + overlay + information band */
   async function shoot() {
     const K = window.KK, v = $('#arVideo'), stage = $('#arStage');
+    if (!A.meter.serial) { K.toast(K.t('arNeedMeter')); showMeterForm(true); return; }
     const p = pose(), list = targets(K), sel = list.find(x => x.id === A.targetId) || list[0];
     if (!sel) { K.toast(K.t('arNoTargets')); return; }
     const sw = stage.clientWidth, sh = stage.clientHeight, scale = Math.min(2, 1600 / Math.max(sw, sh) * 1.0) || 1;
-    const W = Math.round(sw * scale), H = Math.round(sh * scale), band = Math.round(H * 0.16);
+    const W = Math.round(sw * scale), H = Math.round(sh * scale), band = Math.round(H * 0.22);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H + band;
     const g = cv.getContext('2d'); g.fillStyle = '#222'; g.fillRect(0, 0, W, H + band);
     if (v.videoWidth) {   // same "cover" crop as on screen
@@ -175,17 +215,27 @@
     const d = inf.dev; g.fillStyle = d == null ? '#cfd8dc' : Math.abs(d) <= 10 ? '#7cd992' : Math.abs(d) <= 25 ? '#f9c400' : '#ff8a80';
     g.fillRect(0, H, Math.round(8 * u), band);
     g.textAlign = 'left'; g.fillStyle = '#fff';
-    const lines = [inf.txt[0], inf.txt[1], inf.txt[2] + ` · ${K.S.me ? K.S.me.lat.toFixed(5) + ', ' + K.S.me.lng.toFixed(5) : ''}`, new Date().toLocaleString() + (K.S.prefs.name ? ' · ' + K.S.prefs.name : '')];
-    const fs = Math.round(band / 5.2); g.font = `800 ${fs}px system-ui,sans-serif`; g.fillText(lines[0], 14 * u, H + fs * 1.15);
-    g.font = `600 ${Math.round(fs * .9)}px system-ui,sans-serif`; lines.slice(1).forEach((l, i) => g.fillText(l, 14 * u, H + fs * (2.3 + i * 1.05)));
+    const taken = new Date(), pad = (n) => String(n).padStart(2, '0');
+    const stamp = `${taken.getFullYear()}-${pad(taken.getMonth() + 1)}-${pad(taken.getDate())} ${pad(taken.getHours())}:${pad(taken.getMinutes())}:${pad(taken.getSeconds())}`;
+    const lines = [`${K.t('meterShort2')} ${A.meter.serial}${A.meter.order ? ' · ' + K.t('meterOrder') + ' ' + A.meter.order : ''}`,
+      '→ ' + inf.txt[0], inf.txt[1], inf.txt[2] + ` · ${K.S.me ? K.S.me.lat.toFixed(5) + ', ' + K.S.me.lng.toFixed(5) : ''}`, stamp + (K.S.prefs.name ? ' · ' + K.S.prefs.name : '')];
+    const fs = Math.round(band / 6.4), maxW = W - 24 * u;
+    const fit = (txt, weight, size, y) => { let sz = size; do { g.font = `${weight} ${sz}px system-ui,sans-serif`; sz--; } while (g.measureText(txt).width > maxW && sz > 8); g.fillText(txt, 14 * u, y); };
+    fit(lines[0], 800, fs, H + fs * 1.2);
+    fit(lines[1], 700, Math.round(fs * .92), H + fs * 2.35);
+    lines.slice(2).forEach((l, i) => fit(l, 600, Math.round(fs * .86), H + fs * (3.45 + i * 1.08)));
+    const fileName = `${A.meter.serial}-${sel.label}_${stamp.replace(/[: ]/g, (c) => c === ' ' ? '_' : '-')}.jpg`.replace(/[^\w.\-]+/g, '_');
     const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.88));
-    K.antennaPhotoSheet(blob, { targetId: sel.id, kind: sel.kind, label: sel.label, tech: sel.tech, distance: Math.round(sel.d), bearing: Math.round(sel.b), deviation: d, heading: inf.head == null ? null : Math.round(inf.head), mode: p ? p.mode : '', gps: K.S.me ? { lat: +K.S.me.lat.toFixed(6), lng: +K.S.me.lng.toFixed(6), acc: K.S.me.acc } : null });
+    K.antennaPhotoSheet(blob, { fileName, takenAt: taken.toISOString(), meterSerial: A.meter.serial, meterOrder: A.meter.order, meterQr: A.meter.raw, targetId: sel.id, kind: sel.kind, label: sel.label, tech: sel.tech, distance: Math.round(sel.d), bearing: Math.round(sel.b), deviation: d, heading: inf.head == null ? null : Math.round(inf.head), mode: p ? p.mode : '', gps: K.S.me ? { lat: +K.S.me.lat.toFixed(6), lng: +K.S.me.lng.toFixed(6), acc: K.S.me.acc } : null });
     close();
   }
 
   document.addEventListener('click', (e) => {
     if (!A.open) return;
     const el = e.target.closest('[data-artarget],[data-artech],[data-aract]'); if (!el) return;
+    if (el.dataset.aract === 'scanMeter') { A.scanning = true; A.scanUntil = performance.now() + 15000; showMeterForm(false); A.lastPanel = 0; return; }
+    if (el.dataset.aract === 'editMeter') { A.scanning = false; showMeterForm(!(!$('#arMeterForm').hidden)); return; }
+    if (el.dataset.aract === 'meterOk') { const s1 = ($('#arSerial').value || '').replace(/\s+/g, ''), o1 = ($('#arOrder').value || '').replace(/\s+/g, ''); if (!s1) { window.KK.toast(window.KK.t('arNeedMeter')); return; } A.meter = { serial: s1, order: o1, raw: A.meter.raw || '' }; showMeterForm(false); A.lastPanel = 0; return; }
     if (el.dataset.artarget) { A.targetId = el.dataset.artarget; A.lastPanel = 0; return; }
     if (el.dataset.artech) { const tk = el.dataset.artech; A.techs.has(tk) && A.techs.size > 1 ? A.techs.delete(tk) : A.techs.add(tk); el.classList.toggle('on', A.techs.has(tk)); A.lastPanel = 0; return; }
     if (el.dataset.aract === 'close') close();
