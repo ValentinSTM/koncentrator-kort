@@ -51,7 +51,8 @@
   </div>
   <div id="arPanel">
     <div class="arRow"><div id="arMeterTxt" style="flex:1"></div><button class="btn small primary" data-aract="scanMeter" data-i18n="arScanMeter">Scan QR</button><button class="btn small outline" data-aract="editMeter" aria-label="✎">✎</button></div>
-    <div id="arMeterForm" class="arRow" hidden><input id="arSerial" inputmode="numeric" autocomplete="off" data-i18n-ph="meterSerial" placeholder="Serienr."><input id="arOrder" inputmode="numeric" autocomplete="off" data-i18n-ph="meterOrder" placeholder="Ordre"><button class="btn small go" data-aract="meterOk">OK</button></div>
+    <div id="arMeterForm" hidden><div id="arQrPick" class="chips" style="flex-wrap:wrap"></div>
+      <div class="arRow"><input id="arSerial" inputmode="numeric" autocomplete="off" data-i18n-ph="meterSerial" placeholder="Serienr."><button class="btn small go" data-aract="meterOk">OK</button></div></div>
     <div id="arTargets" class="chips"></div>
     <div id="arInfo"></div>
     <div class="arRow"><label class="muted" for="arFov" data-i18n="arFov">Kameravinkel</label><input id="arFov" type="range" min="30" max="80" step="1"><span id="arFovVal" class="muted"></span>

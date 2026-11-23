@@ -213,5 +213,7 @@ textarea.f{min-height:96px;resize:vertical}
 #arView .shutter{align-self:center;width:72px;height:72px;border-radius:50%;border:5px solid #fff;background:#f9c400;cursor:pointer}
 #arView .shutter.off{background:#55626b;border-color:#b0c4cf}
 #arView .warnTxt{color:#f9c400;font-weight:700}
+#arMeterForm{display:flex;flex-direction:column;gap:6px}
+#arMeterForm[hidden]{display:none}
 #arMeterForm input{min-width:0;flex:1;padding:10px;border-radius:10px;border:2px solid #b0c4cf;font-size:16px}
 #arMeterTxt{font-size:15px}

@@ -1023,7 +1023,7 @@
     const url = URL.createObjectURL(blob);
     openSheet({ title: t('arSaveTitle'),
       body: `<img src="${url}" alt="" style="width:100%;border-radius:12px">
-        <dl class="kv"><dt>${esc(t('meterSerial'))}</dt><dd class="mono">${esc(meta.meterSerial)}</dd>${meta.meterOrder ? `<dt>${esc(t('meterOrder'))}</dt><dd class="mono">${esc(meta.meterOrder)}</dd>` : ''}
+        <dl class="kv"><dt>${esc(t('meterSerial'))}</dt><dd class="mono">${esc(meta.meterSerial)}</dd>
           <dt>→</dt><dd>${esc((meta.tech === 'linkiq' ? 'LinkIQ · ' : 'Radio Mesh · ') + meta.label)}</dd><dt>📄</dt><dd class="mono" style="font-size:13px">${esc(meta.fileName)}</dd></dl>
         <label class="f" for="arNote">${esc(t('noteOpt'))}</label><textarea class="f" id="arNote" maxlength="500"></textarea>`,
       foot: `<button class="btn ghost" data-act="arRetake" style="flex:.6">↺ ${esc(t('arRetake'))}</button><button class="btn go" data-act="arSave">💾 ${esc(t('arSavePhone'))}</button>` });
@@ -1045,7 +1045,7 @@
     const ok = await Data.kvSet(Data.newImgKey(S.mode, pid), img); S.imgCache.set(Data.newImgKey(S.mode, pid), img); if (!ok) toast(t('storageWarn'));
     const m = pnd.meta;
     const caption = `${t('arCaption')}${meter ? ' · ' + t('meterShort') + ' ' + meter : ''}${m.deviation == null ? '' : ' · ' + t('arDeviation', { d: (m.deviation > 0 ? '+' : '') + m.deviation })}`;
-    await addEvent(m.targetId, 'photo', { pid, caption, kind: 'antenna', meter, meterOrder: m.meterOrder || '', meterQr: m.meterQr || '', fileName: m.fileName, takenAt: m.takenAt, note, distance: m.distance, bearing: m.bearing, deviation: m.deviation, heading: m.heading, mode: m.mode, gps: m.gps, summary: caption });
+    await addEvent(m.targetId, 'photo', { pid, caption, kind: 'antenna', meter, fileName: m.fileName, takenAt: m.takenAt, note, distance: m.distance, bearing: m.bearing, deviation: m.deviation, heading: m.heading, mode: m.mode, gps: m.gps, summary: caption });
     URL.revokeObjectURL(pnd.url); S.arPending = null; closeSheet(); toast(t('arSaved', { t: m.label }));
     openDetail(m.kind, m.targetId);
   }
