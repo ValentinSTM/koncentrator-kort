@@ -189,3 +189,31 @@ textarea.f{min-height:96px;resize:vertical}
 #updBar{position:fixed;left:8px;right:8px;top:calc(8px + var(--safe-t));z-index:3500;max-width:520px;margin:0 auto;background:var(--ink);color:#fff;border-radius:14px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:10px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 #updBar span{flex:1}
 @media (display-mode: standalone){ header{padding-top:calc(10px + var(--safe-t))} }
+
+/* Antenne-check camera view */
+#arView{position:fixed;inset:0;z-index:2600;background:#000;display:flex;flex-direction:column;color:#fff}
+#arStage{position:relative;flex:1;min-height:0;overflow:hidden}
+#arVideo,#arCanvas{position:absolute;inset:0;width:100%;height:100%}
+#arVideo{object-fit:cover;background:#263238}
+#arTop{position:absolute;left:8px;right:8px;top:calc(8px + var(--safe-t));display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+#arTop .iconbtn{background:rgba(0,0,0,.55);color:#fff}
+#arHint{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(0,0,0,.55);border-radius:10px;padding:6px 10px;font-size:14px;font-weight:600;text-align:center}
+#arPanel{background:#0b2a3c;padding:10px 12px calc(10px + var(--safe-b));display:flex;flex-direction:column;gap:8px}
+#arView .chips{flex-wrap:nowrap;overflow-x:auto;gap:6px}
+#arView .chip{min-height:40px;padding:6px 10px;font-size:14px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35);white-space:nowrap}
+#arView .chip.on{background:#fff;color:#0b2a3c;border-color:#fff}
+#arInfo{display:flex;flex-direction:column;gap:2px}
+#arInfo b{font-size:18px}
+#arInfo .dev{font-size:16px;font-weight:800}
+#arInfo .dev.ok{color:#7cd992}#arInfo .dev.mid{color:#f9c400}#arInfo .dev.bad{color:#ff8a80}
+#arInfo small{color:#b0c4cf}
+#arView .arRow{display:flex;align-items:center;gap:8px}
+#arView .arRow input{flex:1}
+#arView .muted{color:#b0c4cf}
+#arView .shutter{align-self:center;width:72px;height:72px;border-radius:50%;border:5px solid #fff;background:#f9c400;cursor:pointer}
+#arView .shutter.off{background:#55626b;border-color:#b0c4cf}
+#arView .warnTxt{color:#f9c400;font-weight:700}
+#arMeterForm{display:flex;flex-direction:column;gap:6px}
+#arMeterForm[hidden]{display:none}
+#arMeterForm input{min-width:0;flex:1;padding:10px;border-radius:10px;border:2px solid #b0c4cf;font-size:16px}
+#arMeterTxt{font-size:15px}

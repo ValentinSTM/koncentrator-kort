@@ -30,6 +30,7 @@ hartă cu poziția montatorului, descrierea exactă a locului de montaj, fotogra
 - **Completează în 1 minut**: 1) „Sunt lângă concentrator” (GPS), 2) unde e – doar butoane, 3) fotografii;
 - **poziție manuală** când GPS-ul lipsește (ex. PC cu localizarea oprită): 📌 → alegi pe hartă, scrii o adresă (căutată doar în datele încărcate) sau coordonate; aplicația o ține minte;
 - **aplicație instalabilă (PWA)**: se instalează pe telefon, se deschide de pe ecranul principal și merge fără internet (aplicația, datele, fotografiile descărcate și zonele de hartă deja văzute); modificările stau la coadă și se trimit când revine semnalul; versiunile noi apar ca «Ny version klar → Opdatér»;
+- **Antenne-check (📡)**: camera telefonului arată direcția spre concentrator (Radio Mesh) sau site (LinkIQ) – telefonul culcat deasupra antenei (vedere de sus, linie spre țintă) sau în picioare (ace în imagine, ca la Live View); fotografia se salvează cu banda de date (țintă, distanță, direcție, abatere, GPS, ora, nr. contor); orientativ: busola telefonului poate devia 10–20° lângă metal;
 - note, raportare problemă, istoric;
 - **spațiu comun temporar** (Google Drive prin Google Apps Script) până la Azure: toți văd aceleași date, sincronizare automată, coadă offline – vezi `docs/ro/LAGER-TEMPORAR-GOOGLE.md`; modificările rămân pe dispozitiv și se exportă ca fișier pentru birou (până la Azure).
 
